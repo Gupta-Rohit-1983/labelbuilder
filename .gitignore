@@ -1,0 +1,32 @@
+# Build output
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+.factorypath
+bin/
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Logs & local runtime state
+*.log
+logs/
+*.h2.db
+*.mv.db
+*.trace.db
+
+# jpackage / dist intermediates
+lb-dist/build/
+
+# Local-only config (never commit credentials)
+application-local.yml
+*.env

@@ -1,0 +1,23 @@
+# Normalise line endings: LF in the repo, native on checkout
+* text=auto
+
+*.java text
+*.xml text
+*.md text
+*.yml text
+*.properties text
+*.css text
+*.fxml text
+
+# Windows scripts keep CRLF
+*.cmd text eol=crlf
+*.bat text eol=crlf
+mvnw text eol=lf
+
+# Binary
+*.png binary
+*.jpg binary
+*.ico binary
+*.ttf binary
+*.zip binary
+*.lbl binary
