@@ -1,0 +1,8 @@
+spring:
+  main:
+    web-application-type: none
+    banner-mode: off
+
+labelbuilder:
+  app-name: LabelBuilder
+  version: 0.1.0-SNAPSHOT

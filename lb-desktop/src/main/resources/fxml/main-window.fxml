@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+
+<!--
+  Main window shell.
+  top:    ribbon placeholder (Phase 4)
+  center: designer workspace placeholder — docking (Phase 5) then canvas (Phase 6)
+  bottom: status bar (fleshed out in Phase 3b)
+-->
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.rohit.labelbuilder.desktop.shell.MainWindowController">
+  <center>
+    <Label fx:id="centerPlaceholder" style="-fx-text-fill: #808080;"/>
+  </center>
+  <bottom>
+    <HBox styleClass="status-bar" spacing="12">
+      <padding>
+        <Insets top="4" right="8" bottom="4" left="8"/>
+      </padding>
+      <Label fx:id="statusLabel"/>
+    </HBox>
+  </bottom>
+</BorderPane>
