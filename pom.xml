@@ -12,7 +12,20 @@
   <name>LabelBuilder</name>
   <description>BarTender-equivalent label design and printing suite</description>
 
-  <!-- Modules are added in Phase 2b -->
+  <modules>
+    <module>lb-model</module>
+    <module>lb-core</module>
+    <module>lb-barcode</module>
+    <module>lb-render</module>
+    <module>lb-print</module>
+    <module>lb-data</module>
+    <module>lb-plugin-api</module>
+    <module>lb-automation</module>
+    <module>lb-desktop</module>
+    <module>lb-server</module>
+    <module>lb-arch</module>
+    <module>lb-dist</module>
+  </modules>
 
   <properties>
     <java.version>21</java.version>
@@ -46,6 +59,7 @@
     <maven-enforcer-plugin.version>3.6.3</maven-enforcer-plugin.version>
     <maven-toolchains-plugin.version>3.2.0</maven-toolchains-plugin.version>
     <javafx-maven-plugin.version>0.0.8</javafx-maven-plugin.version>
+    <spotless-maven-plugin.version>3.8.0</spotless-maven-plugin.version>
   </properties>
 
   <dependencyManagement>
@@ -176,6 +190,24 @@
         <artifactId>lb-automation</artifactId>
         <version>${project.version}</version>
       </dependency>
+      <dependency>
+        <groupId>com.rohit.labelbuilder</groupId>
+        <artifactId>lb-desktop</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.rohit.labelbuilder</groupId>
+        <artifactId>lb-server</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+
+      <!-- Transitive convergence pins (enforcer dependencyConvergence) -->
+      <!-- commons-csv/commons-compress want 2.20.0, POI wants 2.21.0 -->
+      <dependency>
+        <groupId>commons-io</groupId>
+        <artifactId>commons-io</artifactId>
+        <version>2.21.0</version>
+      </dependency>
 
       <!-- Test -->
       <dependency>
@@ -257,6 +289,28 @@
             </jdk>
           </toolchains>
         </configuration>
+      </plugin>
+      <!-- Formatting gate: 'mvnw spotless:apply' fixes, 'verify' fails on violations -->
+      <plugin>
+        <groupId>com.diffplug.spotless</groupId>
+        <artifactId>spotless-maven-plugin</artifactId>
+        <version>${spotless-maven-plugin.version}</version>
+        <configuration>
+          <java>
+            <palantirJavaFormat/>
+            <removeUnusedImports/>
+            <formatAnnotations/>
+          </java>
+        </configuration>
+        <executions>
+          <execution>
+            <id>spotless-check</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
