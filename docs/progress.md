@@ -21,7 +21,10 @@ when a **full phase** completes (one commit per phase).
 | | 4b | ✅ | 2026-07-23 | ribbon control: RibbonSpec (data) + RibbonBuilder (TabPane render); Home + View tabs; replaces 4a toolbar |
 | | 4c | ✅ | 2026-07-23 | sealed ItemSpec: split buttons (Save▾Save As live), gallery mechanism, contextual tabs via RibbonContexts |
 | | 4d | ✅ | 2026-07-23 | quick-access toolbar (New/Open/Save/Print beside menu bar) + selected-ribbon-tab persistence — **Phase 4 complete** |
-| 5 — Docking | 5a–5d | ⬜ | | |
+| 5 — Docking | 5a | ✅ | 2026-07-23 | DockLayout tree (Center/Group/Split) + transforms, DockPanelRegistry, DockStationBuilder; center-only in shell |
+| | 5b | ✅ | 2026-07-23 | DockStation: tab drag sources, 4-side drop-zone overlay, group drop targets; DockMoves pure gestures |
+| | 5c | ✅ | 2026-07-23 | DockState (float/auto-hide/dock-back), floating utility windows, edge bars + pin drawer |
+| | 5d | ✅ | 2026-07-23 | DockStateCodec + DockStatePreferences (defensive restore); StandardPanels (Toolbox/Objects/Properties/Layers) + default workspace — **Phase 5 complete** |
 | 6 — Canvas & rendering | 6a–6e | ⬜ | | |
 | 7 — Object model & commands | 7a–7d | ⬜ | | |
 | 8 — Editing tools | 8a–8d | ⬜ | | |

@@ -36,9 +36,9 @@
   </top>
 
   <center>
-    <!-- The docking framework (Phase 5) replaces this StackPane's content; the pane itself marks
-         the docking area's bounds in the shell. -->
-    <StackPane styleClass="docking-area">
+    <!-- The controller renders the DockLayout into this host (Phase 5a); the placeholder label
+         is handed to the layout's Center slot until the canvas arrives (Phase 6). -->
+    <StackPane fx:id="dockingArea" styleClass="docking-area">
       <Label fx:id="centerPlaceholder" styleClass="workspace-placeholder"/>
     </StackPane>
   </center>

@@ -18,10 +18,16 @@ import static com.rohit.labelbuilder.desktop.shell.ShellActions.VIEW_ZOOM_IN;
 import static com.rohit.labelbuilder.desktop.shell.ShellActions.VIEW_ZOOM_OUT;
 
 import com.rohit.labelbuilder.desktop.action.ActionRegistry;
+import com.rohit.labelbuilder.desktop.dock.DockPanelRegistry;
+import com.rohit.labelbuilder.desktop.dock.DockState;
+import com.rohit.labelbuilder.desktop.dock.DockStatePreferences;
+import com.rohit.labelbuilder.desktop.dock.DockStation;
+import com.rohit.labelbuilder.desktop.dock.DockStationBuilder;
 import javafx.fxml.FXML;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuBar;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
@@ -46,6 +52,9 @@ public class MainWindowController {
     private final StatusBus statusBus;
     private final ShellRibbon ribbon;
     private final RibbonStatePreferences ribbonState;
+    private final DockStationBuilder dockBuilder;
+    private final DockPanelRegistry dockPanels;
+    private final DockStatePreferences dockState;
 
     @FXML
     private VBox topBox;
@@ -55,6 +64,9 @@ public class MainWindowController {
 
     @FXML
     private HBox quickAccessBar;
+
+    @FXML
+    private StackPane dockingArea;
 
     @FXML
     private Label centerPlaceholder;
@@ -72,11 +84,20 @@ public class MainWindowController {
     private Label environmentLabel;
 
     public MainWindowController(
-            ActionRegistry actions, StatusBus statusBus, ShellRibbon ribbon, RibbonStatePreferences ribbonState) {
+            ActionRegistry actions,
+            StatusBus statusBus,
+            ShellRibbon ribbon,
+            RibbonStatePreferences ribbonState,
+            DockStationBuilder dockBuilder,
+            DockPanelRegistry dockPanels,
+            DockStatePreferences dockState) {
         this.actions = actions;
         this.statusBus = statusBus;
         this.ribbon = ribbon;
         this.ribbonState = ribbonState;
+        this.dockBuilder = dockBuilder;
+        this.dockPanels = dockPanels;
+        this.dockState = dockState;
     }
 
     @FXML
@@ -107,7 +128,13 @@ public class MainWindowController {
         ribbonState.bind(ribbonPane);
         topBox.getChildren().add(ribbonPane);
 
+        // Restore the persisted workspace (default: StandardPanels.defaultLayout()); persist every
+        // docking change. The placeholder label fills the Center slot until the canvas (Phase 6).
         centerPlaceholder.setText("Design workspace — canvas arrives in Phase 6");
+        DockState initial = dockState.load(DockState.of(StandardPanels.defaultLayout()), dockPanels.ids());
+        DockStation station = new DockStation(dockBuilder, dockPanels, centerPlaceholder, initial);
+        station.stateProperty().addListener((obs, old, current) -> dockState.save(current));
+        dockingArea.getChildren().setAll(station);
         statusMessage.textProperty().bind(statusBus.messageProperty());
         cursorPositionLabel.setText("—");
         zoomLabel.setText("100%");

@@ -45,6 +45,26 @@ class DesktopContextTest {
     }
 
     @Test
+    void dockBeansArePresent() {
+        assertThat(context.getBean(com.rohit.labelbuilder.desktop.dock.DockPanelRegistry.class))
+                .isNotNull();
+        assertThat(context.getBean(com.rohit.labelbuilder.desktop.dock.DockStationBuilder.class))
+                .isNotNull();
+        assertThat(context.getBean(com.rohit.labelbuilder.desktop.dock.DockStatePreferences.class))
+                .isNotNull();
+    }
+
+    @Test
+    void standardPanelsAreRegisteredInTheContext() {
+        var registry = context.getBean(com.rohit.labelbuilder.desktop.dock.DockPanelRegistry.class);
+        // The default layout must be buildable from what actually registered — a missing panel
+        // fails here, at build time.
+        assertThat(registry.ids())
+                .containsAll(com.rohit.labelbuilder.desktop.shell.StandardPanels.defaultLayout()
+                        .panelIds());
+    }
+
+    @Test
     void ribbonBeansArePresent() {
         assertThat(context.getBean(com.rohit.labelbuilder.desktop.ribbon.RibbonBuilder.class))
                 .isNotNull();
