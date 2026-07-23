@@ -30,3 +30,6 @@ lb-dist/build/
 # Local-only config (never commit credentials)
 application-local.yml
 *.env
+
+# Claude Code local settings (machine-specific permissions)
+.claude/settings.local.json

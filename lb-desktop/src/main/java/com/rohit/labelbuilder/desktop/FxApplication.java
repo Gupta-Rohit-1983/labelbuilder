@@ -1,5 +1,6 @@
 package com.rohit.labelbuilder.desktop;
 
+import com.rohit.labelbuilder.desktop.SplashPreloader.StatusNotification;
 import com.rohit.labelbuilder.desktop.shell.StageReadyEvent;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -14,12 +15,17 @@ import org.springframework.context.ConfigurableApplicationContext;
  * <p>Bootstrap sequence:
  *
  * <ol>
- *   <li>{@link #init()} (JavaFX-Launcher thread): start the Spring context. No UI exists yet, so
- *       slow bean initialisation happens before the window appears.
+ *   <li>{@link #init()} (JavaFX-Launcher thread): start the Spring context while the
+ *       {@link SplashPreloader} is on screen. No UI exists yet, so slow bean initialisation
+ *       happens before the window appears.
  *   <li>{@link #start(Stage)} (FX Application Thread): publish {@link StageReadyEvent}; the shell
- *       listener builds the scene from FXML with Spring-managed controllers.
- *   <li>{@link #stop()}: close the context so {@code @PreDestroy} hooks run (flush settings,
- *       cancel executors), then let the FX toolkit exit.
+ *       listener builds the scene from FXML with Spring-managed controllers. Listeners run
+ *       synchronously, so when {@code publishEvent} returns the main window is showing and the
+ *       splash can be dismissed.
+ *   <li>{@link #stop()}: shutdown ordering is <em>flush UI state, then close the context</em> —
+ *       the main window's {@code onHiding} handler has already saved window geometry by the time
+ *       this runs (JavaFX hides all windows before calling {@code stop()}); closing the context
+ *       then runs {@code @PreDestroy} hooks (flush settings, cancel executors).
  * </ol>
  */
 public class FxApplication extends Application {
@@ -28,15 +34,18 @@ public class FxApplication extends Application {
 
     @Override
     public void init() {
+        notifyPreloader(StatusNotification.progress("Starting services…"));
         context = new SpringApplicationBuilder(LabelBuilderDesktop.class)
                 .web(WebApplicationType.NONE)
                 .headless(false)
                 .run(getParameters().getRaw().toArray(new String[0]));
+        notifyPreloader(StatusNotification.progress("Preparing workspace…"));
     }
 
     @Override
     public void start(Stage primaryStage) {
         context.publishEvent(new StageReadyEvent(primaryStage));
+        notifyPreloader(StatusNotification.completed());
     }
 
     @Override
