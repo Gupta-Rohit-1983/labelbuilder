@@ -12,6 +12,100 @@
     -fx-background-color: #e9e9e9;
 }
 
+/* Menu row: menu bar left, quick-access toolbar right, sharing one strip. */
+.menu-row {
+    -fx-background-color: #f0f0f0;
+}
+
+.menu-row .menu-bar {
+    -fx-background-color: transparent;
+}
+
+.quick-access-bar {
+    -fx-spacing: 2;
+    -fx-padding: 0 6 0 6;
+}
+
+.qat-button {
+    -fx-font-size: 12px;
+    -fx-padding: 2 8 2 8;
+    -fx-background-insets: 0;
+}
+
+/* Ribbon (Phase 4b) — a styled TabPane; structure comes from RibbonSpec. */
+.ribbon {
+    -fx-background-color: #f7f7f7;
+}
+
+.ribbon .tab-header-area {
+    -fx-padding: 2 0 0 4;
+}
+
+.ribbon-tab-content {
+    -fx-padding: 4 8 2 8;
+    -fx-spacing: 8;
+    -fx-background-color: #f7f7f7;
+}
+
+.ribbon-group {
+    -fx-padding: 0 4 0 4;
+    -fx-spacing: 2;
+}
+
+.ribbon-group-items {
+    -fx-spacing: 4;
+    -fx-alignment: center-left;
+}
+
+.ribbon-group-title {
+    -fx-font-size: 11px;
+    -fx-text-fill: #909090;
+}
+
+.ribbon-small-stack {
+    -fx-spacing: 2;
+    -fx-alignment: center-left;
+}
+
+.ribbon-large-button {
+    -fx-min-width: 58px;
+    -fx-min-height: 64px;
+    -fx-text-alignment: center;
+}
+
+.ribbon-small-button {
+    -fx-font-size: 12px;
+}
+
+.ribbon-split-button {
+    -fx-font-size: 12px;
+}
+
+/* Contextual tabs (visible only while their context key is active) get a highlight tint. */
+.ribbon .tab.ribbon-contextual-tab {
+    -fx-background-color: #dcebf7;
+}
+
+.ribbon-gallery {
+    -fx-spacing: 2;
+    -fx-alignment: center-left;
+}
+
+.ribbon-gallery-cell {
+    -fx-font-size: 12px;
+}
+
+.ribbon-gallery-more {
+    -fx-font-size: 10px;
+    -fx-padding: 2 4 2 4;
+}
+
+.ribbon-gallery-popup {
+    -fx-hgap: 2;
+    -fx-vgap: 2;
+    -fx-padding: 4;
+}
+
 .workspace-placeholder {
     -fx-text-fill: #808080;
     -fx-alignment: center;

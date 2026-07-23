@@ -296,9 +296,13 @@ deliberately minimal:
 
 ```powershell
 .\mvnw clean verify                 # full build + tests
+.\mvnw install                       # once after module changes: puts sibling jars in ~/.m2 so -pl runs resolve
 .\mvnw -pl lb-desktop javafx:run     # run the desktop app
 .\mvnw -pl lb-server spring-boot:run # run the server
 .\mvnw -pl lb-dist package -Pdist    # build the MSI
 ```
+
+`-pl` builds a single module and resolves siblings from the local repository, not the source tree —
+hence the `install` prerequisite whenever sibling modules changed since the last install.
 
 Maven 3.9.9 is already cached in `~/.m2/wrapper/dists`, so the wrapper works without network access.

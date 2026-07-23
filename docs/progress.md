@@ -17,7 +17,10 @@ when a **full phase** completes (one commit per phase).
 | 3 — Application shell | 3a | ✅ | 2026-07-22 | committed `fb2bdd8` (predates one-commit-per-phase rule) |
 | | 3b | ✅ | 2026-07-23 | shell hardening: app dirs, logging, single-instance, exception handler, window state, menus |
 | | 3c | ✅ | 2026-07-23 | splash preloader, docking-area placeholder, File-menu accelerators, onHiding shutdown ordering — **Phase 3 complete** |
-| 4 — Ribbon | 4a–4d | ⬜ | | |
+| 4 — Ribbon | 4a | ✅ | 2026-07-23 | ActionRegistry + AppAction + StatusBus; menus/toolbar registry-generated, FXML layout-only; uncommitted until Phase 4 completes |
+| | 4b | ✅ | 2026-07-23 | ribbon control: RibbonSpec (data) + RibbonBuilder (TabPane render); Home + View tabs; replaces 4a toolbar |
+| | 4c | ✅ | 2026-07-23 | sealed ItemSpec: split buttons (Save▾Save As live), gallery mechanism, contextual tabs via RibbonContexts |
+| | 4d | ✅ | 2026-07-23 | quick-access toolbar (New/Open/Save/Print beside menu bar) + selected-ribbon-tab persistence — **Phase 4 complete** |
 | 5 — Docking | 5a–5d | ⬜ | | |
 | 6 — Canvas & rendering | 6a–6e | ⬜ | | |
 | 7 — Object model & commands | 7a–7d | ⬜ | | |

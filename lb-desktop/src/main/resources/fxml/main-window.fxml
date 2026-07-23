@@ -1,14 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.geometry.Insets?>
-<?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
-<?import javafx.scene.control.Menu?>
 <?import javafx.scene.control.MenuBar?>
-<?import javafx.scene.control.MenuItem?>
-<?import javafx.scene.control.SeparatorMenuItem?>
 <?import javafx.scene.control.Separator?>
-<?import javafx.scene.control.ToolBar?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Region?>
@@ -16,70 +11,27 @@
 <?import javafx.scene.layout.VBox?>
 
 <!--
-  Main window shell (Phase 3b).
-  top:    menu bar + toolbar
-  center: designer workspace placeholder — docking (Phase 5) then canvas (Phase 6)
-  bottom: sectioned status bar
+  Main window shell — LAYOUT ONLY.
+  Menus and toolbar are deliberately empty here: the controller populates them from the
+  ActionRegistry (Phase 4a), so no onAction/accelerator wiring may ever appear in this file
+  (enforced by MainWindowFxmlTest).
 
-  Menus/toolbar carry placeholder handlers here; Phase 4 rebuilds them from a central
-  ActionRegistry (ribbon + menus + shortcuts sharing one command definition).
+  top:    menu row (menu bar + quick-access toolbar) + ribbon (registry-generated; the
+          controller populates both and appends the ribbon to topBox)
+  center: docking area — docking framework (Phase 5) then canvas (Phase 6)
+  bottom: sectioned status bar
 -->
 <BorderPane xmlns="http://javafx.com/javafx"
             xmlns:fx="http://javafx.com/fxml"
             fx:controller="com.rohit.labelbuilder.desktop.shell.MainWindowController"
             stylesheets="@/css/shell.css">
   <top>
-    <VBox>
-      <MenuBar>
-        <menus>
-          <Menu text="_File">
-            <items>
-              <MenuItem text="New Label…" onAction="#onNew" accelerator="Shortcut+N"/>
-              <MenuItem text="Open…" onAction="#onOpen" accelerator="Shortcut+O"/>
-              <SeparatorMenuItem/>
-              <MenuItem text="Save" onAction="#onSave" accelerator="Shortcut+S"/>
-              <MenuItem text="Save As…" onAction="#onSaveAs" accelerator="Shortcut+Shift+S"/>
-              <SeparatorMenuItem/>
-              <MenuItem text="Exit" onAction="#onExit"/>
-            </items>
-          </Menu>
-          <!-- Edit/View accelerators deliberately deferred to Phase 4's ActionRegistry: scene-wide
-               Ctrl+X/C/V bindings here would shadow TextInputControl's built-in clipboard handling
-               the moment the first text field appears. -->
-          <Menu text="_Edit">
-            <items>
-              <MenuItem text="Undo" onAction="#onNotImplemented"/>
-              <MenuItem text="Redo" onAction="#onNotImplemented"/>
-              <SeparatorMenuItem/>
-              <MenuItem text="Cut" onAction="#onNotImplemented"/>
-              <MenuItem text="Copy" onAction="#onNotImplemented"/>
-              <MenuItem text="Paste" onAction="#onNotImplemented"/>
-            </items>
-          </Menu>
-          <Menu text="_View">
-            <items>
-              <MenuItem text="Zoom In" onAction="#onNotImplemented"/>
-              <MenuItem text="Zoom Out" onAction="#onNotImplemented"/>
-              <MenuItem text="Fit to Window" onAction="#onNotImplemented"/>
-            </items>
-          </Menu>
-          <Menu text="_Help">
-            <items>
-              <MenuItem text="About LabelBuilder" onAction="#onAbout"/>
-            </items>
-          </Menu>
-        </menus>
-      </MenuBar>
-
-      <ToolBar>
-        <items>
-          <Button text="New" onAction="#onNew"/>
-          <Button text="Open" onAction="#onOpen"/>
-          <Button text="Save" onAction="#onSave"/>
-          <Separator/>
-          <Button text="Print" onAction="#onNotImplemented"/>
-        </items>
-      </ToolBar>
+    <VBox fx:id="topBox">
+      <HBox styleClass="menu-row" alignment="CENTER_LEFT">
+        <MenuBar fx:id="menuBar"/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <HBox fx:id="quickAccessBar" styleClass="quick-access-bar" alignment="CENTER_RIGHT"/>
+      </HBox>
     </VBox>
   </top>
 

@@ -1,14 +1,10 @@
 package com.rohit.labelbuilder.desktop.shell;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 
 import java.io.InputStream;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import javafx.scene.input.KeyCombination;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.junit.jupiter.api.Test;
 import org.w3c.dom.Document;
@@ -17,40 +13,30 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 /**
- * Static integrity checks on {@code main-window.fxml} that run without the JavaFX toolkit: every
- * accelerator string must parse, and every {@code onAction} handler must exist on the controller.
- * Catches the classic FXML failure mode — a typo that only explodes at runtime on first click.
+ * Static integrity checks on {@code main-window.fxml} that run without the JavaFX toolkit.
+ *
+ * <p>Since Phase 4a the FXML is layout-only: all behaviour (handlers, accelerators, texts) comes
+ * from the ActionRegistry. These tests enforce that the FXML never grows inline wiring again —
+ * an {@code onAction} here would bypass the registry and split a command's definition across two
+ * places.
  */
 class MainWindowFxmlTest {
 
     private static final String FXML = "/fxml/main-window.fxml";
 
     @Test
-    void allAcceleratorsParse() throws Exception {
-        List<String> accelerators = attributeValues("accelerator");
-
-        assertThat(accelerators).isNotEmpty();
-        for (String accelerator : accelerators) {
-            assertThatCode(() -> KeyCombination.valueOf(accelerator))
-                    .as("accelerator '%s'", accelerator)
-                    .doesNotThrowAnyException();
-        }
+    void fxmlCarriesNoInlineBehaviour() throws Exception {
+        assertThat(attributeValues("onAction")).isEmpty();
+        assertThat(attributeValues("accelerator")).isEmpty();
     }
 
     @Test
-    void allActionHandlersExistOnController() throws Exception {
-        List<String> handlers = attributeValues("onAction");
-        List<String> controllerMethods = Arrays.stream(MainWindowController.class.getDeclaredMethods())
-                .map(Method::getName)
-                .toList();
+    void registryTargetsExist() throws Exception {
+        // The controller populates the menu bar and quick-access toolbar from the ActionRegistry
+        // and appends the ribbon into topBox.
+        List<String> ids = attributeValues("fx:id");
 
-        assertThat(handlers).isNotEmpty();
-        for (String handler : handlers) {
-            assertThat(handler).startsWith("#");
-            assertThat(controllerMethods)
-                    .as("controller method for %s", handler)
-                    .contains(handler.substring(1));
-        }
+        assertThat(ids).contains("topBox", "menuBar", "quickAccessBar", "statusMessage");
     }
 
     private List<String> attributeValues(String attribute) throws Exception {
