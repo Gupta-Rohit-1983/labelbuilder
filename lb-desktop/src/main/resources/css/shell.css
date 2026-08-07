@@ -12,6 +12,22 @@
     -fx-background-color: #e9e9e9;
 }
 
+/* Design canvas (Phase 6a) — the surface is painted on a Canvas; this styles the host region. */
+.design-canvas {
+    -fx-background-color: #dfe1e5;
+}
+
+/* Rulers (Phase 6b) */
+.ruler {
+    -fx-background-color: #f0f0f0;
+}
+
+.ruler-corner {
+    -fx-background-color: #e6e6e6;
+    -fx-border-color: transparent #c8c8c8 #c8c8c8 transparent;
+    -fx-border-width: 1;
+}
+
 /* Docking (Phase 5) */
 .dock-group {
     -fx-background-color: #f2f2f2;

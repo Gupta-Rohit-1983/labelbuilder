@@ -18,12 +18,17 @@ import static com.rohit.labelbuilder.desktop.shell.ShellActions.VIEW_ZOOM_IN;
 import static com.rohit.labelbuilder.desktop.shell.ShellActions.VIEW_ZOOM_OUT;
 
 import com.rohit.labelbuilder.desktop.action.ActionRegistry;
+import com.rohit.labelbuilder.desktop.canvas.CanvasCommands;
+import com.rohit.labelbuilder.desktop.canvas.CanvasView;
+import com.rohit.labelbuilder.desktop.canvas.DesignCanvas;
 import com.rohit.labelbuilder.desktop.dock.DockPanelRegistry;
 import com.rohit.labelbuilder.desktop.dock.DockState;
 import com.rohit.labelbuilder.desktop.dock.DockStatePreferences;
 import com.rohit.labelbuilder.desktop.dock.DockStation;
 import com.rohit.labelbuilder.desktop.dock.DockStationBuilder;
+import javafx.beans.binding.Bindings;
 import javafx.fxml.FXML;
+import javafx.geometry.Point2D;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuBar;
 import javafx.scene.layout.HBox;
@@ -55,6 +60,7 @@ public class MainWindowController {
     private final DockStationBuilder dockBuilder;
     private final DockPanelRegistry dockPanels;
     private final DockStatePreferences dockState;
+    private final CanvasCommands canvasCommands;
 
     @FXML
     private VBox topBox;
@@ -67,9 +73,6 @@ public class MainWindowController {
 
     @FXML
     private StackPane dockingArea;
-
-    @FXML
-    private Label centerPlaceholder;
 
     @FXML
     private Label statusMessage;
@@ -90,7 +93,8 @@ public class MainWindowController {
             RibbonStatePreferences ribbonState,
             DockStationBuilder dockBuilder,
             DockPanelRegistry dockPanels,
-            DockStatePreferences dockState) {
+            DockStatePreferences dockState,
+            CanvasCommands canvasCommands) {
         this.actions = actions;
         this.statusBus = statusBus;
         this.ribbon = ribbon;
@@ -98,6 +102,7 @@ public class MainWindowController {
         this.dockBuilder = dockBuilder;
         this.dockPanels = dockPanels;
         this.dockState = dockState;
+        this.canvasCommands = canvasCommands;
     }
 
     @FXML
@@ -128,16 +133,33 @@ public class MainWindowController {
         ribbonState.bind(ribbonPane);
         topBox.getChildren().add(ribbonPane);
 
+        // The design canvas (framed with rulers by CanvasView) occupies the docking Center slot;
+        // the View menu/ribbon zoom actions route to the canvas via CanvasCommands.
+        DesignCanvas canvas = new DesignCanvas();
+        CanvasView canvasView = new CanvasView(canvas);
+        canvasCommands.setActive(canvas);
+
         // Restore the persisted workspace (default: StandardPanels.defaultLayout()); persist every
-        // docking change. The placeholder label fills the Center slot until the canvas (Phase 6).
-        centerPlaceholder.setText("Design workspace — canvas arrives in Phase 6");
+        // docking change.
         DockState initial = dockState.load(DockState.of(StandardPanels.defaultLayout()), dockPanels.ids());
-        DockStation station = new DockStation(dockBuilder, dockPanels, centerPlaceholder, initial);
+        DockStation station = new DockStation(dockBuilder, dockPanels, canvasView, initial);
         station.stateProperty().addListener((obs, old, current) -> dockState.save(current));
         dockingArea.getChildren().setAll(station);
+
         statusMessage.textProperty().bind(statusBus.messageProperty());
-        cursorPositionLabel.setText("—");
-        zoomLabel.setText("100%");
+        cursorPositionLabel
+                .textProperty()
+                .bind(Bindings.createStringBinding(
+                        () -> {
+                            Point2D p = canvas.pointerMmProperty().get();
+                            return p == null ? "—" : String.format("%.1f, %.1f mm", p.getX(), p.getY());
+                        },
+                        canvas.pointerMmProperty()));
+        zoomLabel
+                .textProperty()
+                .bind(Bindings.createStringBinding(
+                        () -> Math.round(canvas.viewportProperty().get().zoom() * 100) + "%",
+                        canvas.viewportProperty()));
         environmentLabel.setText("Java %s · JavaFX %s"
                 .formatted(System.getProperty("java.version"), System.getProperty("javafx.version")));
     }

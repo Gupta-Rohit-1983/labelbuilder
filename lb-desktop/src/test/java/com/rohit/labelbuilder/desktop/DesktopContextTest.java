@@ -65,6 +65,12 @@ class DesktopContextTest {
     }
 
     @Test
+    void canvasCommandsBeanIsPresent() {
+        assertThat(context.getBean(com.rohit.labelbuilder.desktop.canvas.CanvasCommands.class))
+                .isNotNull();
+    }
+
+    @Test
     void ribbonBeansArePresent() {
         assertThat(context.getBean(com.rohit.labelbuilder.desktop.ribbon.RibbonBuilder.class))
                 .isNotNull();

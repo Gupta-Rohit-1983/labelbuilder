@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
 import com.rohit.labelbuilder.desktop.action.ActionRegistry;
+import com.rohit.labelbuilder.desktop.canvas.CanvasCommands;
 import com.rohit.labelbuilder.desktop.ribbon.RibbonSpec;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -17,7 +18,8 @@ class ShellRibbonSpecTest {
     @Test
     void everyRibbonActionIdResolvesInTheRegistry() {
         ActionRegistry registry = new ActionRegistry();
-        new ShellActions(registry, new StatusBus(), new BuildInfo("LabelBuilder", "test")).registerAll();
+        new ShellActions(registry, new StatusBus(), new BuildInfo("LabelBuilder", "test"), new CanvasCommands())
+                .registerAll();
 
         for (RibbonSpec.TabSpec tab : ShellRibbon.SPEC.tabs()) {
             for (RibbonSpec.GroupSpec group : tab.groups()) {
@@ -35,7 +37,8 @@ class ShellRibbonSpecTest {
     @Test
     void everyQuickAccessActionIdResolvesInTheRegistry() {
         ActionRegistry registry = new ActionRegistry();
-        new ShellActions(registry, new StatusBus(), new BuildInfo("LabelBuilder", "test")).registerAll();
+        new ShellActions(registry, new StatusBus(), new BuildInfo("LabelBuilder", "test"), new CanvasCommands())
+                .registerAll();
 
         assertThat(ShellRibbon.QUICK_ACCESS).isNotEmpty().doesNotHaveDuplicates();
         for (String id : ShellRibbon.QUICK_ACCESS) {

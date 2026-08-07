@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
 import com.rohit.labelbuilder.desktop.action.ActionRegistry;
+import com.rohit.labelbuilder.desktop.canvas.CanvasCommands;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.List;
@@ -20,7 +21,7 @@ class ShellActionsTest {
     void setUp() {
         registry = new ActionRegistry();
         status = new StatusBus();
-        new ShellActions(registry, status, new BuildInfo("LabelBuilder", "test")).registerAll();
+        new ShellActions(registry, status, new BuildInfo("LabelBuilder", "test"), new CanvasCommands()).registerAll();
     }
 
     @Test

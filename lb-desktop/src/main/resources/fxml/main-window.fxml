@@ -36,11 +36,9 @@
   </top>
 
   <center>
-    <!-- The controller renders the DockLayout into this host (Phase 5a); the placeholder label
-         is handed to the layout's Center slot until the canvas arrives (Phase 6). -->
-    <StackPane fx:id="dockingArea" styleClass="docking-area">
-      <Label fx:id="centerPlaceholder" styleClass="workspace-placeholder"/>
-    </StackPane>
+    <!-- The controller renders the DockStation into this host (Phase 5); the DesignCanvas
+         (Phase 6a) fills the layout's Center slot. -->
+    <StackPane fx:id="dockingArea" styleClass="docking-area"/>
   </center>
 
   <bottom>

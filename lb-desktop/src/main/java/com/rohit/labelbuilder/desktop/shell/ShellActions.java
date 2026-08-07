@@ -3,6 +3,7 @@ package com.rohit.labelbuilder.desktop.shell;
 import static com.rohit.labelbuilder.desktop.action.AppAction.action;
 
 import com.rohit.labelbuilder.desktop.action.ActionRegistry;
+import com.rohit.labelbuilder.desktop.canvas.CanvasCommands;
 import jakarta.annotation.PostConstruct;
 import javafx.scene.control.Alert;
 import javafx.stage.Window;
@@ -41,11 +42,13 @@ public class ShellActions {
     private final ActionRegistry registry;
     private final StatusBus status;
     private final BuildInfo buildInfo;
+    private final CanvasCommands canvas;
 
-    public ShellActions(ActionRegistry registry, StatusBus status, BuildInfo buildInfo) {
+    public ShellActions(ActionRegistry registry, StatusBus status, BuildInfo buildInfo, CanvasCommands canvas) {
         this.registry = registry;
         this.status = status;
         this.buildInfo = buildInfo;
+        this.canvas = canvas;
     }
 
     @PostConstruct
@@ -114,17 +117,17 @@ public class ShellActions {
         registry.register(action(VIEW_ZOOM_IN)
                 .text("Zoom _In")
                 .accelerator("Shortcut+Equals")
-                .onAction(() -> status.post("Zoom — not yet implemented (Phase 6)"))
+                .onAction(canvas::zoomIn)
                 .build());
         registry.register(action(VIEW_ZOOM_OUT)
                 .text("Zoom _Out")
                 .accelerator("Shortcut+Minus")
-                .onAction(() -> status.post("Zoom — not yet implemented (Phase 6)"))
+                .onAction(canvas::zoomOut)
                 .build());
         registry.register(action(VIEW_ZOOM_FIT)
                 .text("_Fit to Window")
                 .accelerator("Shortcut+Digit0")
-                .onAction(() -> status.post("Zoom — not yet implemented (Phase 6)"))
+                .onAction(canvas::zoomToFit)
                 .build());
 
         registry.register(action(HELP_ABOUT)

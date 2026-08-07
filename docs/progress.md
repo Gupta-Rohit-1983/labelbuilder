@@ -25,7 +25,11 @@ when a **full phase** completes (one commit per phase).
 | | 5b | ✅ | 2026-07-23 | DockStation: tab drag sources, 4-side drop-zone overlay, group drop targets; DockMoves pure gestures |
 | | 5c | ✅ | 2026-07-23 | DockState (float/auto-hide/dock-back), floating utility windows, edge bars + pin drawer |
 | | 5d | ✅ | 2026-07-23 | DockStateCodec + DockStatePreferences (defensive restore); StandardPanels (Toolbox/Objects/Properties/Layers) + default workspace — **Phase 5 complete** |
-| 6 — Canvas & rendering | 6a–6e | ⬜ | | |
+| 6 — Canvas & rendering | 6a | ✅ | 2026-08-07 | CanvasViewport (mm↔px, zoom/pan/fit), LabelSurface, DesignCanvas (wheel-zoom/middle-pan), CanvasCommands wires View→Zoom; status bar shows mm + zoom% |
+| | 6b | ✅ | 2026-08-07 | GridSettings + SnapEngine (pure), Guide; DesignCanvas grid/guides render + drag/delete; Ruler (mm ticks, pointer marker, click-to-add guide); CanvasView frames it |
+| | 6c | ✅ | 2026-08-07 | BoundsMm + SelectionModel + ResizeHandle (pure); CanvasItem placeholder; DesignCanvas select/multi-select/move(snap)/resize/rotate/rubber-band |
+| | 6d | ✅ | 2026-08-07 | lb-render: RenderScene model (RenderColor/Primitive/Scene), Java2DRenderer reference, ImageComparator + committed PNG baseline regression; FX↔Java2D pixel parity deferred to Phase 19 (TestFX/Monocle) |
+| | 6e | ✅ | 2026-08-07 | viewport culling (visibleModelBounds + rotatedAabb), grid clipping to visible∩surface, repaint coalescing — **Phase 6 complete** |
 | 7 — Object model & commands | 7a–7d | ⬜ | | |
 | 8 — Editing tools | 8a–8d | ⬜ | | |
 | 9 — Property inspector | 9a–9d | ⬜ | | |
