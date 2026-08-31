@@ -12,9 +12,10 @@ import org.springframework.stereotype.Component;
 
 /**
  * Defines and registers the shell's standard actions. Handlers are placeholders (posting to the
- * status bar) until their real implementations land — file ops in Phase 14, undo/redo in 7c,
- * print in 13, zoom in 6a. Enablement is honest: undo/redo start disabled because there is no
- * command stack yet; they light up in Phase 7c.
+ * status bar) until their real implementations land — file ops in Phase 14, undo/redo in Phase 8,
+ * print in 13, zoom in 6a. Enablement is honest: the CommandStack engine now exists in lb-core
+ * (Phase 7c), but undo/redo stay disabled until the editor is backed by a live document in Phase 8,
+ * which is when these actions get wired to a stack.
  *
  * <p>Cut/copy/paste carry no accelerators deliberately: scene-wide Ctrl+X/C/V would shadow
  * {@code TextInputControl}'s built-in clipboard handling. They get focus-aware routing when the
@@ -92,13 +93,13 @@ public class ShellActions {
         registry.register(action(EDIT_UNDO)
                 .text("_Undo")
                 .accelerator("Shortcut+Z")
-                .enabled(false) // no command stack yet — Phase 7c flips this
+                .enabled(false) // wired to a CommandStack when the editor gets a live document — Phase 8
                 .onAction(() -> status.post("Undo"))
                 .build());
         registry.register(action(EDIT_REDO)
                 .text("_Redo")
                 .accelerator("Shortcut+Y")
-                .enabled(false) // no command stack yet — Phase 7c flips this
+                .enabled(false) // wired to a CommandStack when the editor gets a live document — Phase 8
                 .onAction(() -> status.post("Redo"))
                 .build());
         registry.register(action(EDIT_CUT)

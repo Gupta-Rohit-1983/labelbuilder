@@ -30,7 +30,10 @@ when a **full phase** completes (one commit per phase).
 | | 6c | ✅ | 2026-08-07 | BoundsMm + SelectionModel + ResizeHandle (pure); CanvasItem placeholder; DesignCanvas select/multi-select/move(snap)/resize/rotate/rubber-band |
 | | 6d | ✅ | 2026-08-07 | lb-render: RenderScene model (RenderColor/Primitive/Scene), Java2DRenderer reference, ImageComparator + committed PNG baseline regression; FX↔Java2D pixel parity deferred to Phase 19 (TestFX/Monocle) |
 | | 6e | ✅ | 2026-08-07 | viewport culling (visibleModelBounds + rotatedAabb), grid clipping to visible∩surface, repaint coalescing — **Phase 6 complete** |
-| 7 — Object model & commands | 7a–7d | ⬜ | | |
+| 7 — Object model & commands | 7a | ✅ | 2026-08-31 | lb-model: pure immutable model — Bounds/RgbaColor + style value types; LabelElement sealed base (composition via ElementProperties) + Text/Rectangle/Ellipse/Line/Image/Barcode-placeholder/Group; document root (LabelDocument/Stock/Layer/GridSpec/Guides). Framework-free (Jackson/FX deferred to 7d); ~40 tests |
+| | 7b | ✅ | 2026-08-31 | lb-model.meta: reflection-free property metadata — PropertyDescriptor (typed getter+immutable wither, kind/range/enum-constants) + ElementSchema + ElementSchemas registry; every sealed element type has a schema (test-guarded); common (name/geometry) + per-type props, stroke/fill decomposed to inspector scalars. Drives Phase 9 inspector |
+| | 7c | ✅ | 2026-08-31 | lb-core.command: Command (pure forward transform + mergeKey) + CommandStack (snapshot history over immutable LabelDocument: undo/redo, capacity cap, change listeners, mergeable steps); CompositeCommand = transaction (atomic); Add/Remove/Replace/Move/SetProperty commands (SetProperty routes through 7b schema). Undo/Redo actions stay disabled in shell until editor is document-backed (Phase 8) |
+| | 7d | ✅ | 2026-08-31 | lb-core.persistence: `.lbl` ZIP format per lbl-format.md — DocumentJson (hand-mapped model↔Jackson tree, byte-stable, forward-tolerant), LabelFiles (manifest+document+assets+thumbnail, schema-version gate), LabelPackage, LblValidator (layer/asset/credential invariants §8). Round-trip byte-identical + deep-equals verified — **Phase 7 complete** |
 | 8 — Editing tools | 8a–8d | ⬜ | | |
 | 9 — Property inspector | 9a–9d | ⬜ | | |
 | 10 — Barcode & QR | 10a–10d | ⬜ | | |
