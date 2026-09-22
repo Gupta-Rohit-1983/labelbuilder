@@ -16,7 +16,7 @@ RFID encoding, live data binding (SQL Server, MySQL, Excel, CSV, REST), direct t
 
 ## Building
 
-Requires JDK 21 registered as a Maven toolchain (`~/.m2/toolchains.xml`). The wrapper supplies
+Requires JDK 25 registered as a Maven toolchain (`~/.m2/toolchains.xml`). The wrapper supplies
 Maven 3.9.9.
 
 ```powershell

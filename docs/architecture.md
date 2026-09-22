@@ -287,7 +287,7 @@ deliberately minimal:
 | Whitelisted expression evaluator | Raw SpEL is remote code execution in a multi-user product (R-04) | Raw SpEL, Groovy, JS engine |
 | Flyway migrations | Deterministic, reviewable schema evolution | Hibernate `ddl-auto` |
 | H2 file mode on the client | Zero-install local store for settings/cache/profiles | Flat files, Windows registry |
-| JDK 21 LTS, enforced by Maven toolchain | Everything we depend on — Spring Boot 3.x, JavaFX 21, Barcode4J, PDFBox — is tested against it; JDK 26 outruns Spring Boot 3.5's supported range | Building on JDK 26 with `--release 21` |
+| JDK 25 LTS, enforced by Maven toolchain | Everything we depend on — Spring Boot 3.x, JavaFX 21, Barcode4J, PDFBox — is tested against it; JDK 26 is reserved for future compatibility work | Building on JDK 26 with `--release 25` |
 | Model in millimetres | Physical accuracy is the product's core promise (NFR-07); pixels are a rendering concern | Model in pixels/points |
 
 ---

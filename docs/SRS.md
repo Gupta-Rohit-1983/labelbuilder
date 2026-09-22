@@ -218,8 +218,8 @@ Requirement IDs are stable and referenced from tests and phase deliverables.
 
 | Item | Decision | Note |
 |---|---|---|
-| Language level | Java 21 | LTS |
-| Build JDK | **JDK 21 LTS** — decided 2026-07-21 | Machine currently has JDK 26 only; JDK 21 to be installed before Phase 2. Enforced by a Maven toolchain so a wrong JDK fails the build loudly. |
+| Language level | Java 25 | LTS |
+| Build JDK | **JDK 25 LTS** — upgraded 2026-09-04 | Machine currently has JDK 26 only; JDK 25 must be installed before building. Enforced by a Maven toolchain so a wrong JDK fails the build loudly. |
 | UI | JavaFX 21 | |
 | Framework | Spring Boot 3.x | Client (DI/config) and server (web/data/security) |
 | Build | Maven multi-module, via `mvnw` | Maven 3.9.9 already cached in `~/.m2/wrapper` |
@@ -258,7 +258,7 @@ Requirement IDs are stable and referenced from tests and phase deliverables.
 | R-04 | Unsandboxed expressions in a multi-user product | Remote code execution | Whitelisted function registry; never raw SpEL |
 | R-05 | Total scope is a 12–18 month single-developer build | Stalls before value delivered | Ship v0.1 at 13c (design + print a static label), then iterate |
 | R-06 | Streaming vs. materialising large record sets decided late | Rewrite of the data layer | `RecordSet` is cursor-based from 11a, never `List<Record>` |
-| R-07 | ~~Only JDK 26 installed; Spring Boot 3.5 targets ≤ Java 24~~ **Resolved 2026-07-21** | Runtime instability, CGLIB/ASM failures | **Decision: standardise on JDK 21 LTS.** To be installed before Phase 2; a Maven toolchain declaration fails the build on any other JDK |
+| R-07 | ~~Only JDK 26 installed; Spring Boot 3.5 targets ≤ Java 24~~ **Updated 2026-09-04** | Runtime instability, CGLIB/ASM failures | **Decision: standardise on JDK 25 LTS.** To be installed before building; a Maven toolchain declaration fails the build on any other JDK |
 | R-08 | Credential handling across client, `.lbl` files and server | Security incident | Credentials never in `.lbl`; encrypted at rest; server-side enforcement |
 
 ---

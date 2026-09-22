@@ -17,7 +17,7 @@ numbering and scope.** Progress (what is done / in flight) is tracked separately
   it ends with a green `.\mvnw verify` and an updated [progress.md](progress.md).
 - **Commits happen only when a full phase completes** — never per sub-phase. (Exception already
   in history: `fb2bdd8` committed 3a alone, before this rule existed.)
-- Build runs on the **JDK 21 toolchain** (SRS §5, risk R-07); JDK 26 alone will not build.
+- Build runs on the **JDK 25 toolchain** (SRS §5, risk R-07); JDK 26 alone will not build.
 
 ## Milestones
 
