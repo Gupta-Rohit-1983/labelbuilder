@@ -37,6 +37,11 @@ public record ElementProperties(
         return new ElementProperties(id, name, layerId, bounds, 0, false, true, null);
     }
 
+    /** A copy under a new id — the basis of duplicate/paste, which must not reuse an existing id. */
+    public ElementProperties withId(String newId) {
+        return new ElementProperties(newId, name, layerId, bounds, rotationDeg, locked, visible, printCondition);
+    }
+
     public ElementProperties withBounds(Bounds newBounds) {
         return new ElementProperties(id, name, layerId, newBounds, rotationDeg, locked, visible, printCondition);
     }

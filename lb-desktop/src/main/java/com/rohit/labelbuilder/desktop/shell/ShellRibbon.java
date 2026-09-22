@@ -46,6 +46,36 @@ public class ShellRibbon {
                                             small(ShellActions.EDIT_COPY))),
                             new RibbonSpec.GroupSpec(
                                     "History", List.of(small(ShellActions.EDIT_UNDO), small(ShellActions.EDIT_REDO))),
+                            // Creation tools (8a): each arms the canvas for one placement.
+                            new RibbonSpec.GroupSpec(
+                                    "Insert",
+                                    List.of(
+                                            large(ShellActions.INSERT_TEXT),
+                                            small(ShellActions.INSERT_RECTANGLE),
+                                            small(ShellActions.INSERT_ELLIPSE),
+                                            small(ShellActions.INSERT_LINE),
+                                            small(ShellActions.INSERT_IMAGE),
+                                            small(ShellActions.INSERT_BARCODE))),
+                            // Arrange (8b): enablement is selection-driven, so these grey out
+                            // until enough elements are selected for the operation to mean anything.
+                            new RibbonSpec.GroupSpec(
+                                    "Arrange",
+                                    List.of(
+                                            large(ShellActions.EDIT_DUPLICATE),
+                                            small(ShellActions.EDIT_GROUP),
+                                            small(ShellActions.EDIT_UNGROUP),
+                                            small(ShellActions.ARRANGE_BRING_TO_FRONT),
+                                            small(ShellActions.ARRANGE_BRING_FORWARD),
+                                            small(ShellActions.ARRANGE_SEND_BACKWARD),
+                                            small(ShellActions.ARRANGE_SEND_TO_BACK),
+                                            small(ShellActions.ARRANGE_ALIGN_LEFT),
+                                            small(ShellActions.ARRANGE_ALIGN_CENTER),
+                                            small(ShellActions.ARRANGE_ALIGN_RIGHT),
+                                            small(ShellActions.ARRANGE_ALIGN_TOP),
+                                            small(ShellActions.ARRANGE_ALIGN_MIDDLE),
+                                            small(ShellActions.ARRANGE_ALIGN_BOTTOM),
+                                            small(ShellActions.ARRANGE_DISTRIBUTE_H),
+                                            small(ShellActions.ARRANGE_DISTRIBUTE_V))),
                             new RibbonSpec.GroupSpec("Output", List.of(large(ShellActions.FILE_PRINT))))),
             new RibbonSpec.TabSpec(
                     "View",

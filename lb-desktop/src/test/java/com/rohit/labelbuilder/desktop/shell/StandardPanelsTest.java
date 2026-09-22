@@ -2,19 +2,38 @@ package com.rohit.labelbuilder.desktop.shell;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.rohit.labelbuilder.desktop.action.ActionRegistry;
 import com.rohit.labelbuilder.desktop.dock.DockLayout;
 import com.rohit.labelbuilder.desktop.dock.DockPanelRegistry;
+import com.rohit.labelbuilder.desktop.document.DocumentSession;
+import com.rohit.labelbuilder.desktop.panels.LayersPanel;
+import com.rohit.labelbuilder.desktop.panels.ObjectsPanel;
+import com.rohit.labelbuilder.desktop.panels.ToolboxPanel;
 import javafx.geometry.Side;
 import org.junit.jupiter.api.Test;
 
 /** Registration and default layout are pure — the panel content suppliers are never invoked. */
 class StandardPanelsTest {
 
+    // The panel beans are cheap to construct; their FX views are only built when a supplier runs,
+    // which registration never does — so this stays toolkit-free.
+    private static ToolboxPanel toolbox() {
+        return new ToolboxPanel(new ActionRegistry());
+    }
+
+    private static ObjectsPanel objects() {
+        return new ObjectsPanel(new DocumentSession());
+    }
+
+    private static LayersPanel layers() {
+        return new LayersPanel(new DocumentSession());
+    }
+
     @Test
     void registersTheFourStandardPanels() {
         DockPanelRegistry registry = new DockPanelRegistry();
 
-        new StandardPanels(registry).registerAll();
+        new StandardPanels(registry, toolbox(), objects(), layers()).registerAll();
 
         assertThat(registry.ids())
                 .containsExactlyInAnyOrder(

@@ -1,5 +1,6 @@
 package com.rohit.labelbuilder.desktop.canvas;
 
+import com.rohit.labelbuilder.core.edit.ElementKind;
 import org.springframework.stereotype.Component;
 
 /**
@@ -34,6 +35,13 @@ public class CanvasCommands {
     public void zoomToFit() {
         if (active != null) {
             active.zoomToFit();
+        }
+    }
+
+    /** Arms a creation tool on the active canvas; the next click/drag places that element (8a). */
+    public void setTool(ElementKind kind) {
+        if (active != null) {
+            active.setActiveTool(kind);
         }
     }
 }

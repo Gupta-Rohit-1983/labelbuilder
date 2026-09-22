@@ -1,6 +1,21 @@
 package com.rohit.labelbuilder.desktop.canvas;
 
-import java.util.HashMap;
+import com.rohit.labelbuilder.core.command.AddElementCommand;
+import com.rohit.labelbuilder.core.command.Command;
+import com.rohit.labelbuilder.core.command.CompositeCommand;
+import com.rohit.labelbuilder.core.command.SetBoundsCommand;
+import com.rohit.labelbuilder.core.command.SetPropertyCommand;
+import com.rohit.labelbuilder.core.edit.ElementFactory;
+import com.rohit.labelbuilder.core.edit.ElementKind;
+import com.rohit.labelbuilder.desktop.document.DocumentSession;
+import com.rohit.labelbuilder.desktop.document.EditActions;
+import com.rohit.labelbuilder.model.document.LabelDocument;
+import com.rohit.labelbuilder.model.element.LabelElement;
+import com.rohit.labelbuilder.model.geom.Bounds;
+import com.rohit.labelbuilder.render.scene.SceneMapper;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import javafx.application.Platform;
 import javafx.beans.property.ObjectProperty;
@@ -13,22 +28,31 @@ import javafx.geometry.Orientation;
 import javafx.geometry.Point2D;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.control.ContextMenu;
+import javafx.scene.input.ContextMenuEvent;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Region;
 import javafx.scene.paint.Color;
 
 /**
- * The design workspace canvas (Phase 6a–6c): renders the label surface through a {@link
- * CanvasViewport}, the grid and alignment guides (6b), and the placeholder {@link CanvasItem}s
- * with selection, resize and rotate handles (6c).
+ * The design workspace canvas. Renders the open {@link LabelDocument} through a {@link
+ * CanvasViewport} — surface, grid and guides (6a–6b), the elements themselves, and selection with
+ * resize/rotate handles (6c) — and hosts the creation tools that place new elements (8a).
  *
- * <p>Sits in the docking Center slot (framed with rulers by {@link CanvasView}). It reports the
- * pointer's model-mm position and the current zoom as observable properties for the status bar.
+ * <p>Elements are painted by flattening the document to a {@code RenderScene} ({@link SceneMapper})
+ * and painting that with {@link ScenePainter}; the Java2D reference renderer consumes the very same
+ * scene, so the design view and the printout share one description (risk R-03).
+ *
+ * <p>Every edit goes through {@link DocumentSession#execute}, so everything is undoable. A drag is
+ * <b>previewed locally</b> and committed as a single command on release — the history gets one entry
+ * per gesture rather than one per mouse-move, and the document is never rebuilt mid-drag.
  *
  * <p>All non-trivial maths lives in pure, unit-tested types ({@link CanvasViewport}, {@link
  * BoundsMm}, {@link SnapEngine}, {@link SelectionModel}); this FX class is the interaction and
- * painting shell around them. The items are placeholders until Phase 7's real element model.
+ * painting shell around them.
  */
 public class DesignCanvas extends Region {
 
@@ -43,23 +67,27 @@ public class DesignCanvas extends Region {
     private static final double ROTATE_GAP_PX = 18; // rotate handle distance above the top edge
     private static final double MIN_ITEM_MM = 1;
     private static final double ROTATE_SNAP_DEG = 15;
+    private static final double CLICK_SLOP_PX = 3; // below this a creation drag counts as a click
 
     private enum Mode {
         NONE,
         MOVE,
         RESIZE,
         ROTATE,
-        RUBBER_BAND
+        RUBBER_BAND,
+        CREATE
     }
 
+    private final DocumentSession session;
+    private final EditActions edit;
     private final Canvas canvas = new Canvas();
     private final ObjectProperty<CanvasViewport> viewport = new SimpleObjectProperty<>(CanvasViewport.initial());
     private final ObjectProperty<LabelSurface> surface = new SimpleObjectProperty<>(LabelSurface.defaultSize());
     private final ObjectProperty<GridSettings> grid = new SimpleObjectProperty<>(GridSettings.defaults());
     private final ObservableList<Guide> guides = FXCollections.observableArrayList();
-    private final ObservableList<CanvasItem> items = FXCollections.observableArrayList();
-    private final SelectionModel<CanvasItem> selection = new SelectionModel<>();
     private final ReadOnlyObjectWrapper<Point2D> pointerMm = new ReadOnlyObjectWrapper<>(null);
+    /** The active creation tool; {@code null} means the select/transform tool. */
+    private final ObjectProperty<ElementKind> activeTool = new SimpleObjectProperty<>(null);
 
     private boolean needsInitialFit = true;
     private boolean repaintScheduled;
@@ -70,18 +98,25 @@ public class DesignCanvas extends Region {
 
     private Mode mode = Mode.NONE;
     private ResizeHandle activeHandle;
-    private CanvasItem activeItem;
+    private String activeElementId;
     private BoundsMm startBounds;
     private double pressDeviceX;
     private double pressDeviceY;
     private Point2D pressModel;
-    private final Map<CanvasItem, BoundsMm> moveStart = new HashMap<>();
     private double rubberStartX;
     private double rubberStartY;
     private double rubberNowX;
     private double rubberNowY;
 
-    public DesignCanvas() {
+    /** Live drag preview: element id → its in-progress bounds, uncommitted until release. */
+    private final Map<String, BoundsMm> pendingBounds = new LinkedHashMap<>();
+
+    private Double pendingRotationDeg;
+    private ContextMenu contextMenu;
+
+    public DesignCanvas(DocumentSession session, EditActions edit) {
+        this.session = session;
+        this.edit = edit;
         getStyleClass().add("design-canvas");
         canvas.setManaged(false);
         getChildren().add(canvas);
@@ -91,13 +126,16 @@ public class DesignCanvas extends Region {
         surface.addListener((o, a, b) -> requestRepaint());
         grid.addListener((o, a, b) -> requestRepaint());
         guides.addListener((javafx.collections.ListChangeListener<Guide>) c -> requestRepaint());
-        items.addListener((javafx.collections.ListChangeListener<CanvasItem>) c -> requestRepaint());
         widthProperty().addListener((o, a, b) -> requestRepaint());
         heightProperty().addListener((o, a, b) -> requestRepaint());
 
-        // Placeholder objects so selection/handles are demonstrable before Phase 7's element model.
-        items.add(new CanvasItem("Text", new BoundsMm(14, 12, 42, 14)));
-        items.add(new CanvasItem("Box", new BoundsMm(22, 34, 30, 16)));
+        // The canvas is a view of the session: repaint whenever the document or selection changes.
+        session.documentProperty().addListener((o, a, b) -> {
+            syncSurface();
+            requestRepaint();
+        });
+        session.addSelectionListener(this::requestRepaint);
+        syncSurface();
 
         installNavigation();
     }
@@ -124,11 +162,24 @@ public class DesignCanvas extends Region {
         return guides;
     }
 
-    public ObservableList<CanvasItem> items() {
-        return items;
+    /** The active creation tool, or {@code null} for select mode. */
+    public ObjectProperty<ElementKind> activeToolProperty() {
+        return activeTool;
     }
 
-    // ---- snapping (used by moves and, later, element drags in Phase 8) ------------------
+    /** Arm a creation tool; {@code null} returns to select mode. */
+    public void setActiveTool(ElementKind kind) {
+        activeTool.set(kind);
+    }
+
+    /** Keeps the drawn surface in step with the document's stock. */
+    private void syncSurface() {
+        LabelDocument document = session.document();
+        surface.set(
+                new LabelSurface(document.stock().widthMm(), document.stock().heightMm()));
+    }
+
+    // ---- snapping -----------------------------------------------------------------------
 
     public Point2D snap(Point2D modelPoint) {
         return new Point2D(snapX(modelPoint.getX()), snapY(modelPoint.getY()));
@@ -172,6 +223,68 @@ public class DesignCanvas extends Region {
         viewport.set(viewport.get().zoomedByAt(factor, getWidth() / 2, getHeight() / 2));
     }
 
+    // ---- document view ------------------------------------------------------------------
+
+    /**
+     * The document as it should currently be seen: the committed document plus any in-progress drag
+     * preview. Painting and hit-testing both use this so the drag feels direct while the history
+     * stays clean.
+     */
+    private LabelDocument effectiveDocument() {
+        LabelDocument document = session.document();
+        if (pendingBounds.isEmpty() && pendingRotationDeg == null) {
+            return document;
+        }
+        LabelDocument preview = document;
+        for (Map.Entry<String, BoundsMm> entry : pendingBounds.entrySet()) {
+            LabelElement element = preview.findElement(entry.getKey()).orElse(null);
+            if (element != null) {
+                preview = preview.replaceElement(element.withBounds(toModel(entry.getValue())));
+            }
+        }
+        if (pendingRotationDeg != null && activeElementId != null) {
+            LabelElement element = preview.findElement(activeElementId).orElse(null);
+            if (element != null) {
+                preview = preview.replaceElement(element.withRotationDeg(pendingRotationDeg));
+            }
+        }
+        return preview;
+    }
+
+    private static Bounds toModel(BoundsMm b) {
+        return new Bounds(b.x(), b.y(), b.w(), b.h());
+    }
+
+    private static BoundsMm toView(Bounds b) {
+        return new BoundsMm(b.xMm(), b.yMm(), b.widthMm(), b.heightMm());
+    }
+
+    private BoundsMm boundsOf(LabelElement element) {
+        BoundsMm pending = pendingBounds.get(element.id());
+        return pending != null ? pending : toView(element.bounds());
+    }
+
+    private double rotationOf(LabelElement element) {
+        return pendingRotationDeg != null && element.id().equals(activeElementId)
+                ? pendingRotationDeg
+                : element.rotationDeg();
+    }
+
+    private Point2D centreOf(LabelElement element) {
+        return boundsOf(element).center();
+    }
+
+    /** Elements the user may interact with — locked ones are inert. */
+    private List<LabelElement> selectableElements() {
+        List<LabelElement> out = new ArrayList<>();
+        for (LabelElement element : session.document().elements()) {
+            if (!element.locked() && element.visible()) {
+                out.add(element);
+            }
+        }
+        return out;
+    }
+
     // ---- input --------------------------------------------------------------------------
 
     private void installNavigation() {
@@ -186,6 +299,78 @@ public class DesignCanvas extends Region {
         setOnMouseClicked(this::onClicked);
         setOnMouseMoved(e -> updatePointer(e.getX(), e.getY()));
         setOnMouseExited(e -> pointerMm.set(null));
+        setOnKeyPressed(this::onKeyPressed);
+        setOnContextMenuRequested(this::onContextMenuRequested);
+    }
+
+    /**
+     * The right-click menu, supplied by the shell so the canvas needs no knowledge of action ids.
+     * Built once; its items track their actions' enablement.
+     */
+    public void setElementContextMenu(ContextMenu menu) {
+        this.contextMenu = menu;
+    }
+
+    /**
+     * Right-click selects what is under the pointer before opening the menu — otherwise the menu
+     * would act on a selection the user cannot see, which is the classic way to delete the wrong
+     * thing. Right-clicking empty space clears the selection.
+     */
+    private void onContextMenuRequested(ContextMenuEvent e) {
+        if (contextMenu == null) {
+            return;
+        }
+        CanvasViewport vp = viewport.get();
+        LabelElement hit = topElementAt(new Point2D(vp.toModelX(e.getX()), vp.toModelY(e.getY())));
+        if (hit == null) {
+            session.clearSelection();
+        } else if (!session.isSelected(hit.id())) {
+            session.select(hit.id());
+        }
+        contextMenu.show(this, e.getScreenX(), e.getScreenY());
+        e.consume();
+    }
+
+    /**
+     * Canvas-scoped keys. Arrow keys nudge the selection by one grid step, or ten with Shift; Delete
+     * removes it; Ctrl+X/C/V act on elements.
+     *
+     * <p>These are bound here rather than as global accelerators so they only apply while the canvas
+     * has focus — the arrows and the clipboard keys keep their normal meaning inside any text field
+     * (a scene-wide Ctrl+C would otherwise shadow {@code TextInputControl}'s own handling).
+     */
+    private void onKeyPressed(KeyEvent e) {
+        if (e.isShortcutDown()) {
+            switch (e.getCode()) {
+                case X -> edit.cut();
+                case C -> edit.copy();
+                case V -> edit.paste();
+                default -> {
+                    return;
+                }
+            }
+            e.consume();
+            return;
+        }
+        if (e.getCode() == KeyCode.DELETE || e.getCode() == KeyCode.BACK_SPACE) {
+            edit.delete();
+            e.consume();
+            return;
+        }
+        double step = grid.get().spacingMm() * (e.isShiftDown() ? 10 : 1);
+        double dx = 0;
+        double dy = 0;
+        switch (e.getCode()) {
+            case LEFT -> dx = -step;
+            case RIGHT -> dx = step;
+            case UP -> dy = -step;
+            case DOWN -> dy = step;
+            default -> {
+                return;
+            }
+        }
+        edit.nudge(dx, dy);
+        e.consume();
     }
 
     private void onPressed(MouseEvent e) {
@@ -205,6 +390,16 @@ public class DesignCanvas extends Region {
             return;
         }
 
+        // 0) a creation tool is armed: drag out the new element's box
+        if (activeTool.get() != null) {
+            mode = Mode.CREATE;
+            rubberStartX = e.getX();
+            rubberStartY = e.getY();
+            rubberNowX = e.getX();
+            rubberNowY = e.getY();
+            e.consume();
+            return;
+        }
         // 1) grab a guide line
         draggedGuide = guideAt(e.getX(), e.getY());
         if (draggedGuide >= 0) {
@@ -212,37 +407,37 @@ public class DesignCanvas extends Region {
             e.consume();
             return;
         }
-        // 2) grab a resize/rotate handle of the single selected item
-        CanvasItem single = selection.size() == 1 ? selection.primary() : null;
+        // 2) grab a resize/rotate handle of the single selected element
+        LabelElement single = singleSelected();
         if (single != null) {
             if (rotateHandleAt(single, e.getX(), e.getY())) {
                 mode = Mode.ROTATE;
-                activeItem = single;
+                activeElementId = single.id();
                 e.consume();
                 return;
             }
             ResizeHandle handle = handleAt(single, e.getX(), e.getY());
             if (handle != null) {
                 mode = Mode.RESIZE;
-                activeItem = single;
+                activeElementId = single.id();
                 activeHandle = handle;
-                startBounds = single.bounds();
+                startBounds = boundsOf(single);
                 e.consume();
                 return;
             }
         }
-        // 3) select / move an item, or start a rubber-band
-        CanvasItem hit = topItemAt(pressModel);
+        // 3) select / move an element, or start a rubber-band
+        LabelElement hit = topElementAt(pressModel);
         if (hit != null) {
             if (e.isShiftDown()) {
-                selection.toggle(hit);
-            } else if (!selection.isSelected(hit)) {
-                selection.replaceWith(hit);
+                session.toggleSelection(hit.id());
+            } else if (!session.isSelected(hit.id())) {
+                session.select(hit.id());
             }
             beginMove();
         } else {
             if (!e.isShiftDown()) {
-                selection.clear();
+                session.clearSelection();
             }
             mode = Mode.RUBBER_BAND;
             rubberStartX = e.getX();
@@ -256,9 +451,11 @@ public class DesignCanvas extends Region {
 
     private void beginMove() {
         mode = Mode.MOVE;
-        moveStart.clear();
-        for (CanvasItem item : selection.selected()) {
-            moveStart.put(item, item.bounds());
+        pendingBounds.clear();
+        for (LabelElement element : session.selectedElements()) {
+            if (!element.locked()) {
+                pendingBounds.put(element.id(), toView(element.bounds()));
+            }
         }
     }
 
@@ -280,7 +477,7 @@ public class DesignCanvas extends Region {
                 case MOVE -> dragMove(e);
                 case RESIZE -> dragResize(e);
                 case ROTATE -> dragRotate(e);
-                case RUBBER_BAND -> {
+                case RUBBER_BAND, CREATE -> {
                     rubberNowX = e.getX();
                     rubberNowY = e.getY();
                     draw();
@@ -292,8 +489,8 @@ public class DesignCanvas extends Region {
     }
 
     private void dragMove(MouseEvent e) {
-        CanvasItem primary = selection.primary();
-        BoundsMm ps = moveStart.get(primary);
+        String primaryId = session.primarySelectedId();
+        BoundsMm ps = primaryId == null ? null : pendingStart(primaryId);
         if (ps == null) {
             return;
         }
@@ -302,34 +499,53 @@ public class DesignCanvas extends Region {
         double rawY = ps.y() + (cur.getY() - pressModel.getY());
         double effDx = snapX(rawX) - ps.x();
         double effDy = snapY(rawY) - ps.y();
-        for (CanvasItem item : selection.selected()) {
-            item.setBounds(moveStart.get(item).translated(effDx, effDy));
+        for (LabelElement element : session.selectedElements()) {
+            BoundsMm start = pendingStart(element.id());
+            if (start != null) {
+                pendingBounds.put(element.id(), start.translated(effDx, effDy));
+            }
         }
         draw();
     }
 
+    /** The element's bounds as of the gesture start (the committed document). */
+    private BoundsMm pendingStart(String elementId) {
+        return session.document()
+                .findElement(elementId)
+                .map(e -> toView(e.bounds()))
+                .orElse(null);
+    }
+
     private void dragResize(MouseEvent e) {
+        LabelElement element = session.document().findElement(activeElementId).orElse(null);
+        if (element == null) {
+            return;
+        }
         double scale = viewport.get().scale();
         double worldDx = (e.getX() - pressDeviceX) / scale;
         double worldDy = (e.getY() - pressDeviceY) / scale;
-        // Project the device drag into the item's local (unrotated) axes.
-        double r = Math.toRadians(-activeItem.rotationDeg());
+        // Project the device drag into the element's local (unrotated) axes.
+        double r = Math.toRadians(-element.rotationDeg());
         double cos = Math.cos(r);
         double sin = Math.sin(r);
         double localDx = worldDx * cos - worldDy * sin;
         double localDy = worldDx * sin + worldDy * cos;
-        activeItem.setBounds(startBounds.resized(activeHandle, localDx, localDy, MIN_ITEM_MM));
+        pendingBounds.put(activeElementId, startBounds.resized(activeHandle, localDx, localDy, MIN_ITEM_MM));
         draw();
     }
 
     private void dragRotate(MouseEvent e) {
-        Point2D c = activeItem.center();
+        LabelElement element = session.document().findElement(activeElementId).orElse(null);
+        if (element == null) {
+            return;
+        }
+        Point2D c = toView(element.bounds()).center();
         Point2D m = model(e);
         double angle = Math.toDegrees(Math.atan2(m.getY() - c.getY(), m.getX() - c.getX())) + 90;
         if (e.isShiftDown()) {
             angle = Math.round(angle / ROTATE_SNAP_DEG) * ROTATE_SNAP_DEG;
         }
-        activeItem.setRotationDeg(angle);
+        pendingRotationDeg = angle;
         draw();
     }
 
@@ -339,14 +555,75 @@ public class DesignCanvas extends Region {
             e.consume();
             return;
         }
-        if (mode == Mode.RUBBER_BAND) {
-            selectWithinRubberBand();
+        switch (mode) {
+            case RUBBER_BAND -> selectWithinRubberBand();
+            case CREATE -> commitCreation(e);
+            case MOVE, RESIZE -> commitTransform(mode == Mode.MOVE ? "Move" : "Resize");
+            case ROTATE -> commitRotation();
+            default -> {}
         }
         mode = Mode.NONE;
-        activeItem = null;
+        activeElementId = null;
         activeHandle = null;
         draggedGuide = -1;
+        pendingBounds.clear();
+        pendingRotationDeg = null;
         draw();
+    }
+
+    /** Commit a completed move/resize as one undoable command covering every dragged element. */
+    private void commitTransform(String label) {
+        List<Command> edits = new ArrayList<>();
+        for (Map.Entry<String, BoundsMm> entry : pendingBounds.entrySet()) {
+            Bounds target = toModel(entry.getValue());
+            session.document().findElement(entry.getKey()).ifPresent(element -> {
+                if (!element.bounds().equals(target)) {
+                    edits.add(new SetBoundsCommand(element.id(), target, label));
+                }
+            });
+        }
+        if (edits.isEmpty()) {
+            return; // a click, or a drag that ended where it started
+        }
+        session.execute(edits.size() == 1 ? edits.getFirst() : new CompositeCommand(label, edits));
+    }
+
+    private void commitRotation() {
+        if (pendingRotationDeg == null || activeElementId == null) {
+            return;
+        }
+        session.execute(new SetPropertyCommand(activeElementId, "rotation", pendingRotationDeg));
+    }
+
+    /** Turn the dragged-out box (or a bare click) into a new element, then return to select mode. */
+    private void commitCreation(MouseEvent e) {
+        ElementKind kind = activeTool.get();
+        if (kind == null) {
+            return;
+        }
+        String id = ElementFactory.newId();
+        String layerId = session.activeLayerId();
+        boolean dragged = Math.hypot(e.getX() - rubberStartX, e.getY() - rubberStartY) > CLICK_SLOP_PX;
+
+        LabelElement element;
+        if (dragged) {
+            CanvasViewport vp = viewport.get();
+            double x1 = snapX(Math.min(vp.toModelX(rubberStartX), vp.toModelX(e.getX())));
+            double y1 = snapY(Math.min(vp.toModelY(rubberStartY), vp.toModelY(e.getY())));
+            double x2 = snapX(Math.max(vp.toModelX(rubberStartX), vp.toModelX(e.getX())));
+            double y2 = snapY(Math.max(vp.toModelY(rubberStartY), vp.toModelY(e.getY())));
+            // A line is defined by the drag's corners; other kinds get a positive-area box.
+            double w = kind == ElementKind.LINE ? x2 - x1 : Math.max(MIN_ITEM_MM, x2 - x1);
+            double h = kind == ElementKind.LINE ? y2 - y1 : Math.max(MIN_ITEM_MM, y2 - y1);
+            element = ElementFactory.create(kind, id, layerId, new Bounds(x1, y1, w, h));
+        } else {
+            element =
+                    ElementFactory.createDefault(kind, id, layerId, snapX(pressModel.getX()), snapY(pressModel.getY()));
+        }
+
+        session.execute(new AddElementCommand(element));
+        session.select(element.id());
+        activeTool.set(null); // one placement per arming, like every other designer
     }
 
     private void onClicked(MouseEvent e) {
@@ -366,8 +643,11 @@ public class DesignCanvas extends Region {
         double x2 = Math.max(vp.toModelX(rubberStartX), vp.toModelX(rubberNowX));
         double y2 = Math.max(vp.toModelY(rubberStartY), vp.toModelY(rubberNowY));
         BoundsMm rubber = new BoundsMm(x1, y1, x2 - x1, y2 - y1);
-        selection.addAll(
-                items.stream().filter(item -> item.bounds().intersects(rubber)).toList());
+        List<String> hits = selectableElements().stream()
+                .filter(element -> toView(element.bounds()).intersects(rubber))
+                .map(LabelElement::id)
+                .toList();
+        session.addToSelection(hits);
     }
 
     // ---- hit-testing --------------------------------------------------------------------
@@ -377,20 +657,28 @@ public class DesignCanvas extends Region {
         return new Point2D(vp.toModelX(e.getX()), vp.toModelY(e.getY()));
     }
 
-    private CanvasItem topItemAt(Point2D modelPoint) {
-        for (int i = items.size() - 1; i >= 0; i--) { // last drawn is on top
-            CanvasItem item = items.get(i);
-            Point2D local = rotateAbout(modelPoint, item.center(), -item.rotationDeg());
-            if (item.bounds().contains(local.getX(), local.getY())) {
-                return item;
+    private LabelElement singleSelected() {
+        if (session.selectionSize() != 1) {
+            return null;
+        }
+        return session.document().findElement(session.primarySelectedId()).orElse(null);
+    }
+
+    private LabelElement topElementAt(Point2D modelPoint) {
+        List<LabelElement> candidates = selectableElements();
+        for (int i = candidates.size() - 1; i >= 0; i--) { // last drawn is on top
+            LabelElement element = candidates.get(i);
+            Point2D local = rotateAbout(modelPoint, centreOf(element), -rotationOf(element));
+            if (boundsOf(element).contains(local.getX(), local.getY())) {
+                return element;
             }
         }
         return null;
     }
 
-    private ResizeHandle handleAt(CanvasItem item, double deviceX, double deviceY) {
+    private ResizeHandle handleAt(LabelElement element, double deviceX, double deviceY) {
         for (ResizeHandle handle : ResizeHandle.values()) {
-            Point2D d = deviceHandlePoint(item, handle);
+            Point2D d = deviceHandlePoint(element, handle);
             if (Math.hypot(deviceX - d.getX(), deviceY - d.getY()) <= HANDLE_HIT_PX) {
                 return handle;
             }
@@ -398,8 +686,8 @@ public class DesignCanvas extends Region {
         return null;
     }
 
-    private boolean rotateHandleAt(CanvasItem item, double deviceX, double deviceY) {
-        Point2D d = deviceRotateHandle(item);
+    private boolean rotateHandleAt(LabelElement element, double deviceX, double deviceY) {
+        Point2D d = deviceRotateHandle(element);
         return Math.hypot(deviceX - d.getX(), deviceY - d.getY()) <= HANDLE_HIT_PX;
     }
 
@@ -417,15 +705,15 @@ public class DesignCanvas extends Region {
         return -1;
     }
 
-    private Point2D deviceHandlePoint(CanvasItem item, ResizeHandle handle) {
-        Point2D local = item.bounds().handlePoint(handle);
-        Point2D world = rotateAbout(local, item.center(), item.rotationDeg());
+    private Point2D deviceHandlePoint(LabelElement element, ResizeHandle handle) {
+        Point2D local = boundsOf(element).handlePoint(handle);
+        Point2D world = rotateAbout(local, centreOf(element), rotationOf(element));
         CanvasViewport vp = viewport.get();
         return new Point2D(vp.toDeviceX(world.getX()), vp.toDeviceY(world.getY()));
     }
 
-    private Point2D deviceRotateHandle(CanvasItem item) {
-        Point2D n = deviceHandlePoint(item, ResizeHandle.N);
+    private Point2D deviceRotateHandle(LabelElement element) {
+        Point2D n = deviceHandlePoint(element, ResizeHandle.N);
         return new Point2D(n.getX(), n.getY() - ROTATE_GAP_PX);
     }
 
@@ -508,43 +796,22 @@ public class DesignCanvas extends Region {
         g.setLineWidth(1);
         g.strokeRect(x - 0.5, y - 0.5, sw + 1, sh + 1);
 
-        // Cull items whose rotated bounding box lies entirely outside the viewport (Phase 6e).
-        for (CanvasItem item : items) {
-            if (visible.intersects(item.bounds().rotatedAabb(item.rotationDeg()))) {
-                drawItem(g, vp, item);
-            }
-        }
-        drawSelection(g, vp);
+        // The elements, through the shared RenderScene seam (culled by ScenePainter).
+        ScenePainter.paint(g, vp, SceneMapper.toScene(effectiveDocument()), visible);
+
+        drawSelection(g);
         drawGuides(g, vp, w, h);
         drawRubberBand(g);
     }
 
-    private void drawItem(GraphicsContext g, CanvasViewport vp, CanvasItem item) {
-        BoundsMm b = item.bounds();
-        double scale = vp.scale();
-        Point2D c = item.center();
-        g.save();
-        g.translate(vp.toDeviceX(c.getX()), vp.toDeviceY(c.getY()));
-        g.rotate(item.rotationDeg());
-        double dw = b.w() * scale;
-        double dh = b.h() * scale;
-        g.setFill(Color.web("#eef2f7"));
-        g.fillRect(-dw / 2, -dh / 2, dw, dh);
-        g.setStroke(Color.web("#7a8290"));
-        g.setLineWidth(1);
-        g.strokeRect(-dw / 2, -dh / 2, dw, dh);
-        g.setFill(Color.web("#5a6472"));
-        g.fillText(item.label(), -dw / 2 + 4, -dh / 2 + 14);
-        g.restore();
-    }
-
-    private void drawSelection(GraphicsContext g, CanvasViewport vp) {
+    private void drawSelection(GraphicsContext g) {
         g.setStroke(Color.web("#1a73e8"));
         g.setLineWidth(1.5);
-        for (CanvasItem item : selection.selected()) {
-            outline(g, vp, item);
+        LabelDocument document = session.document();
+        for (String id : session.selectedIds()) {
+            document.findElement(id).ifPresent(element -> outline(g, element));
         }
-        CanvasItem primary = selection.size() == 1 ? selection.primary() : null;
+        LabelElement primary = singleSelected();
         if (primary != null) {
             for (ResizeHandle handle : ResizeHandle.values()) {
                 handleSquare(g, deviceHandlePoint(primary, handle));
@@ -559,13 +826,14 @@ public class DesignCanvas extends Region {
         }
     }
 
-    private void outline(GraphicsContext g, CanvasViewport vp, CanvasItem item) {
-        BoundsMm b = item.bounds();
+    private void outline(GraphicsContext g, LabelElement element) {
+        CanvasViewport vp = viewport.get();
+        BoundsMm b = boundsOf(element);
         double scale = vp.scale();
-        Point2D c = item.center();
+        Point2D c = b.center();
         g.save();
         g.translate(vp.toDeviceX(c.getX()), vp.toDeviceY(c.getY()));
-        g.rotate(item.rotationDeg());
+        g.rotate(rotationOf(element));
         double dw = b.w() * scale;
         double dh = b.h() * scale;
         g.strokeRect(-dw / 2, -dh / 2, dw, dh);
@@ -627,8 +895,9 @@ public class DesignCanvas extends Region {
         }
     }
 
+    /** The rubber-band selection box, and the same visual while dragging out a new element. */
     private void drawRubberBand(GraphicsContext g) {
-        if (mode != Mode.RUBBER_BAND) {
+        if (mode != Mode.RUBBER_BAND && mode != Mode.CREATE) {
             return;
         }
         double rx = Math.min(rubberStartX, rubberNowX);

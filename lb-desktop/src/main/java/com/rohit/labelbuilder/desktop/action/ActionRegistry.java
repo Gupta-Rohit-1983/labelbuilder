@@ -3,6 +3,7 @@ package com.rohit.labelbuilder.desktop.action;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import javafx.scene.control.Button;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.SeparatorMenuItem;
@@ -55,6 +56,19 @@ public class ActionRegistry {
     /** A whole menu from action ids; {@link #SEPARATOR} entries become separators. */
     public Menu createMenu(String text, String... actionIds) {
         Menu menu = new Menu(text);
+        for (String id : actionIds) {
+            menu.getItems().add(SEPARATOR.equals(id) ? new SeparatorMenuItem() : createMenuItem(id));
+        }
+        return menu;
+    }
+
+    /**
+     * A context menu from action ids; {@link #SEPARATOR} entries become separators. Built once and
+     * reused: every item's enablement is bound to its action, so the menu is correct each time it
+     * pops up without being rebuilt.
+     */
+    public ContextMenu createContextMenu(String... actionIds) {
+        ContextMenu menu = new ContextMenu();
         for (String id : actionIds) {
             menu.getItems().add(SEPARATOR.equals(id) ? new SeparatorMenuItem() : createMenuItem(id));
         }

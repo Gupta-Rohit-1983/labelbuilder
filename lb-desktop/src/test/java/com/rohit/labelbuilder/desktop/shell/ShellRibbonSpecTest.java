@@ -5,6 +5,9 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 
 import com.rohit.labelbuilder.desktop.action.ActionRegistry;
 import com.rohit.labelbuilder.desktop.canvas.CanvasCommands;
+import com.rohit.labelbuilder.desktop.document.DocumentSession;
+import com.rohit.labelbuilder.desktop.document.EditActions;
+import com.rohit.labelbuilder.desktop.document.ElementClipboard;
 import com.rohit.labelbuilder.desktop.ribbon.RibbonSpec;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -18,7 +21,16 @@ class ShellRibbonSpecTest {
     @Test
     void everyRibbonActionIdResolvesInTheRegistry() {
         ActionRegistry registry = new ActionRegistry();
-        new ShellActions(registry, new StatusBus(), new BuildInfo("LabelBuilder", "test"), new CanvasCommands())
+        DocumentSession session = new DocumentSession();
+        ElementClipboard clipboard = new ElementClipboard();
+        new ShellActions(
+                        registry,
+                        new StatusBus(),
+                        new BuildInfo("LabelBuilder", "test"),
+                        new CanvasCommands(),
+                        session,
+                        new EditActions(session, clipboard),
+                        clipboard)
                 .registerAll();
 
         for (RibbonSpec.TabSpec tab : ShellRibbon.SPEC.tabs()) {
@@ -37,7 +49,16 @@ class ShellRibbonSpecTest {
     @Test
     void everyQuickAccessActionIdResolvesInTheRegistry() {
         ActionRegistry registry = new ActionRegistry();
-        new ShellActions(registry, new StatusBus(), new BuildInfo("LabelBuilder", "test"), new CanvasCommands())
+        DocumentSession session = new DocumentSession();
+        ElementClipboard clipboard = new ElementClipboard();
+        new ShellActions(
+                        registry,
+                        new StatusBus(),
+                        new BuildInfo("LabelBuilder", "test"),
+                        new CanvasCommands(),
+                        session,
+                        new EditActions(session, clipboard),
+                        clipboard)
                 .registerAll();
 
         assertThat(ShellRibbon.QUICK_ACCESS).isNotEmpty().doesNotHaveDuplicates();

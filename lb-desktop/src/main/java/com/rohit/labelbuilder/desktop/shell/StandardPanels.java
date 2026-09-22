@@ -3,6 +3,9 @@ package com.rohit.labelbuilder.desktop.shell;
 import com.rohit.labelbuilder.desktop.dock.DockLayout;
 import com.rohit.labelbuilder.desktop.dock.DockPanel;
 import com.rohit.labelbuilder.desktop.dock.DockPanelRegistry;
+import com.rohit.labelbuilder.desktop.panels.LayersPanel;
+import com.rohit.labelbuilder.desktop.panels.ObjectsPanel;
+import com.rohit.labelbuilder.desktop.panels.ToolboxPanel;
 import jakarta.annotation.PostConstruct;
 import javafx.geometry.Side;
 import javafx.scene.Node;
@@ -11,9 +14,11 @@ import javafx.scene.layout.StackPane;
 import org.springframework.stereotype.Component;
 
 /**
- * Registers the four standard tool panels (Phase 5d) with placeholder content; the owning
- * feature phases replace the content: Toolbox in Phase 8, Property Inspector in Phase 9,
- * Object Explorer and Layers alongside the object model work (Phases 7–8).
+ * Registers the four standard tool panels (Phase 5d). Toolbox, Object Explorer and Layers are live as
+ * of Phase 8d; the Property Inspector is still a placeholder until Phase 9.
+ *
+ * <p>Content is supplied lazily, so a panel's view is only built when the docking station actually
+ * shows it.
  */
 @Component
 public class StandardPanels {
@@ -24,19 +29,26 @@ public class StandardPanels {
     public static final String LAYERS = "panel.layers";
 
     private final DockPanelRegistry registry;
+    private final ToolboxPanel toolbox;
+    private final ObjectsPanel objects;
+    private final LayersPanel layers;
 
-    public StandardPanels(DockPanelRegistry registry) {
+    public StandardPanels(DockPanelRegistry registry, ToolboxPanel toolbox, ObjectsPanel objects, LayersPanel layers) {
         this.registry = registry;
+        this.toolbox = toolbox;
+        this.objects = objects;
+        this.layers = layers;
     }
 
     @PostConstruct
     void registerAll() {
-        registry.register(new DockPanel(TOOLBOX, "Toolbox", placeholder("Toolbox — tools arrive in Phase 8")));
+        registry.register(new DockPanel(TOOLBOX, "Toolbox", toolbox::create));
+        registry.register(new DockPanel(OBJECT_EXPLORER, "Objects", objects::create));
         registry.register(new DockPanel(
-                OBJECT_EXPLORER, "Objects", placeholder("Object Explorer — arrives with the object model (Phase 7)")));
-        registry.register(
-                new DockPanel(PROPERTIES, "Properties", placeholder("Property Inspector — arrives in Phase 9")));
-        registry.register(new DockPanel(LAYERS, "Layers", placeholder("Layers — arrive in Phase 7")));
+                PROPERTIES,
+                "Properties",
+                placeholder("Property Inspector — edits the selected element; arrives in Phase 9")));
+        registry.register(new DockPanel(LAYERS, "Layers", this.layers::create));
     }
 
     /** The out-of-the-box workspace: Toolbox left; Properties/Objects/Layers tabbed right. */

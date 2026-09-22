@@ -1,11 +1,19 @@
 package com.rohit.labelbuilder.desktop.shell;
 
 import static com.rohit.labelbuilder.desktop.action.ActionRegistry.SEPARATOR;
+import static com.rohit.labelbuilder.desktop.shell.ShellActions.ARRANGE_BRING_FORWARD;
+import static com.rohit.labelbuilder.desktop.shell.ShellActions.ARRANGE_BRING_TO_FRONT;
+import static com.rohit.labelbuilder.desktop.shell.ShellActions.ARRANGE_SEND_BACKWARD;
+import static com.rohit.labelbuilder.desktop.shell.ShellActions.ARRANGE_SEND_TO_BACK;
 import static com.rohit.labelbuilder.desktop.shell.ShellActions.EDIT_COPY;
 import static com.rohit.labelbuilder.desktop.shell.ShellActions.EDIT_CUT;
+import static com.rohit.labelbuilder.desktop.shell.ShellActions.EDIT_DELETE;
+import static com.rohit.labelbuilder.desktop.shell.ShellActions.EDIT_DUPLICATE;
+import static com.rohit.labelbuilder.desktop.shell.ShellActions.EDIT_GROUP;
 import static com.rohit.labelbuilder.desktop.shell.ShellActions.EDIT_PASTE;
 import static com.rohit.labelbuilder.desktop.shell.ShellActions.EDIT_REDO;
 import static com.rohit.labelbuilder.desktop.shell.ShellActions.EDIT_UNDO;
+import static com.rohit.labelbuilder.desktop.shell.ShellActions.EDIT_UNGROUP;
 import static com.rohit.labelbuilder.desktop.shell.ShellActions.FILE_EXIT;
 import static com.rohit.labelbuilder.desktop.shell.ShellActions.FILE_NEW;
 import static com.rohit.labelbuilder.desktop.shell.ShellActions.FILE_OPEN;
@@ -26,6 +34,8 @@ import com.rohit.labelbuilder.desktop.dock.DockState;
 import com.rohit.labelbuilder.desktop.dock.DockStatePreferences;
 import com.rohit.labelbuilder.desktop.dock.DockStation;
 import com.rohit.labelbuilder.desktop.dock.DockStationBuilder;
+import com.rohit.labelbuilder.desktop.document.DocumentSession;
+import com.rohit.labelbuilder.desktop.document.EditActions;
 import javafx.beans.binding.Bindings;
 import javafx.fxml.FXML;
 import javafx.geometry.Point2D;
@@ -61,6 +71,8 @@ public class MainWindowController {
     private final DockPanelRegistry dockPanels;
     private final DockStatePreferences dockState;
     private final CanvasCommands canvasCommands;
+    private final DocumentSession session;
+    private final EditActions editActions;
 
     @FXML
     private VBox topBox;
@@ -94,7 +106,9 @@ public class MainWindowController {
             DockStationBuilder dockBuilder,
             DockPanelRegistry dockPanels,
             DockStatePreferences dockState,
-            CanvasCommands canvasCommands) {
+            CanvasCommands canvasCommands,
+            DocumentSession session,
+            EditActions editActions) {
         this.actions = actions;
         this.statusBus = statusBus;
         this.ribbon = ribbon;
@@ -103,6 +117,8 @@ public class MainWindowController {
         this.dockPanels = dockPanels;
         this.dockState = dockState;
         this.canvasCommands = canvasCommands;
+        this.session = session;
+        this.editActions = editActions;
     }
 
     @FXML
@@ -120,7 +136,19 @@ public class MainWindowController {
                                 FILE_PRINT,
                                 SEPARATOR,
                                 FILE_EXIT),
-                        actions.createMenu("_Edit", EDIT_UNDO, EDIT_REDO, SEPARATOR, EDIT_CUT, EDIT_COPY, EDIT_PASTE),
+                        actions.createMenu(
+                                "_Edit",
+                                EDIT_UNDO,
+                                EDIT_REDO,
+                                SEPARATOR,
+                                EDIT_CUT,
+                                EDIT_COPY,
+                                EDIT_PASTE,
+                                EDIT_DELETE,
+                                SEPARATOR,
+                                EDIT_DUPLICATE,
+                                EDIT_GROUP,
+                                EDIT_UNGROUP),
                         actions.createMenu("_View", VIEW_ZOOM_IN, VIEW_ZOOM_OUT, VIEW_ZOOM_FIT),
                         actions.createMenu("_Help", HELP_ABOUT));
         ribbon.quickAccessActionIds().forEach(id -> {
@@ -135,9 +163,25 @@ public class MainWindowController {
 
         // The design canvas (framed with rulers by CanvasView) occupies the docking Center slot;
         // the View menu/ribbon zoom actions route to the canvas via CanvasCommands.
-        DesignCanvas canvas = new DesignCanvas();
+        DesignCanvas canvas = new DesignCanvas(session, editActions);
         CanvasView canvasView = new CanvasView(canvas);
         canvasCommands.setActive(canvas);
+
+        // Right-click menu, generated from the registry like every other surface (Phase 8d).
+        canvas.setElementContextMenu(actions.createContextMenu(
+                EDIT_CUT,
+                EDIT_COPY,
+                EDIT_PASTE,
+                EDIT_DELETE,
+                SEPARATOR,
+                EDIT_DUPLICATE,
+                EDIT_GROUP,
+                EDIT_UNGROUP,
+                SEPARATOR,
+                ARRANGE_BRING_TO_FRONT,
+                ARRANGE_BRING_FORWARD,
+                ARRANGE_SEND_BACKWARD,
+                ARRANGE_SEND_TO_BACK));
 
         // Restore the persisted workspace (default: StandardPanels.defaultLayout()); persist every
         // docking change.

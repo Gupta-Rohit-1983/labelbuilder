@@ -34,7 +34,10 @@ when a **full phase** completes (one commit per phase).
 | | 7b | ✅ | 2026-08-31 | lb-model.meta: reflection-free property metadata — PropertyDescriptor (typed getter+immutable wither, kind/range/enum-constants) + ElementSchema + ElementSchemas registry; every sealed element type has a schema (test-guarded); common (name/geometry) + per-type props, stroke/fill decomposed to inspector scalars. Drives Phase 9 inspector |
 | | 7c | ✅ | 2026-08-31 | lb-core.command: Command (pure forward transform + mergeKey) + CommandStack (snapshot history over immutable LabelDocument: undo/redo, capacity cap, change listeners, mergeable steps); CompositeCommand = transaction (atomic); Add/Remove/Replace/Move/SetProperty commands (SetProperty routes through 7b schema). Undo/Redo actions stay disabled in shell until editor is document-backed (Phase 8) |
 | | 7d | ✅ | 2026-08-31 | lb-core.persistence: `.lbl` ZIP format per lbl-format.md — DocumentJson (hand-mapped model↔Jackson tree, byte-stable, forward-tolerant), LabelFiles (manifest+document+assets+thumbnail, schema-version gate), LabelPackage, LblValidator (layer/asset/credential invariants §8). Round-trip byte-identical + deep-equals verified — **Phase 7 complete** |
-| 8 — Editing tools | 8a–8d | ⬜ | | |
+| 8 — Editing tools | 8a | ✅ | 2026-09-04 | Canvas is now document-backed: DocumentSession (document + CommandStack + id-based selection) replaces placeholder CanvasItem (deleted). SceneMapper (lb-render) flattens LabelDocument→RenderScene; ScenePainter paints it — FX canvas and Java2D renderer now share one description (R-03). ElementKind/ElementFactory + SetBoundsCommand (lb-core); drag-to-create for text/rect/ellipse/line/image/barcode via ribbon Insert group; transforms commit one command per gesture. **Undo/Redo now live**, enablement bound to the stack |
+| | 8b | ✅ | 2026-09-04 | Arrange tools: ArrangeOps (pure align/distribute/nudge/duplicate incl. group re-id) + Align/Distribute enums + EditCommands (lb-core); EditActions + observable selectionCount (lb-desktop); ribbon Arrange group + Edit▸Duplicate (Ctrl+D), arrow-key nudge (Shift = ×10). Enablement bound to selection size (align ≥2, distribute ≥3); no-ops never reach the undo stack |
+| | 8c | ✅ | 2026-09-22 | Structure & clipboard: Group/Ungroup/Reorder(ZOrder)/AddLayer/UpdateLayer/MoveToLayer commands + delete/group/ungroup/reorder/paste in EditCommands (lb-core); ElementClipboard (in-app) + EditActions cut/copy/paste/delete/group/ungroup/reorder (lb-desktop); Edit menu + ribbon Arrange entries; canvas-scoped Delete and Ctrl+X/C/V (not global, so text fields keep their own clipboard). Objects/Layers panels moved to 8d |
+| | 8d | ✅ | 2026-09-22 | Panels & menus: ActionRegistry.createContextMenu + canvas right-click menu (selects under pointer first); ToolboxPanel (buttons generated from the same Insert actions as the ribbon), ObjectsPanel (front-to-back list, two-way selection sync with re-entrancy guard), LayersPanel (visibility/lock toggles, add layer, move selection to layer — all undoable). StandardPanels now serves real views — **Phase 8 complete** |
 | 9 — Property inspector | 9a–9d | ⬜ | | |
 | 10 — Barcode & QR | 10a–10d | ⬜ | | |
 | 11 — Data layer | 11a–11e | ⬜ | | |
@@ -54,7 +57,9 @@ when a **full phase** completes (one commit per phase).
 
 ## Environment notes
 
-- Build requires the **JDK 21 toolchain**: Temurin 21.0.11 at `~\.jdks\jdk-21.0.11+10`,
-  registered in `~/.m2/toolchains.xml`. On 2026-07-23 that JDK folder was found gutted
-  (likely antivirus/disk cleanup) — if the build fails with "No toolchain found", check
-  `bin\java.exe` exists there before anything else.
+- Build requires the **JDK 25 toolchain** (upgraded from 21 on 2026-09-04): Temurin 25.0.4.1 at
+  `~\.jdks\jdk-25.0.4.1+1`, registered in `~/.m2/toolchains.xml`. Temurin 21.0.11 is kept
+  registered alongside it. Verified green on JDK 25 across the full reactor, including the Spring
+  context and JavaFX tests — so Spring Boot 3.5 + JavaFX 21 run on Java 25 despite SRS risk R-07.
+- On 2026-07-23 the JDK folder was found gutted (likely antivirus/disk cleanup) — if the build
+  fails with "No toolchain found", check `bin\java.exe` exists there before anything else.
