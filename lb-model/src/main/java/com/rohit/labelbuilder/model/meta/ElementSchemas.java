@@ -19,6 +19,7 @@ import com.rohit.labelbuilder.model.style.ImageFit;
 import com.rohit.labelbuilder.model.style.LineCap;
 import com.rohit.labelbuilder.model.style.Monochrome;
 import com.rohit.labelbuilder.model.style.MonochromeMethod;
+import com.rohit.labelbuilder.model.style.Quadrant;
 import com.rohit.labelbuilder.model.style.RgbaColor;
 import com.rohit.labelbuilder.model.style.Stroke;
 import com.rohit.labelbuilder.model.style.Symbology;
@@ -43,6 +44,8 @@ public final class ElementSchemas {
     private static final String APPEARANCE = "Appearance";
     private static final String IMAGE = "Image";
     private static final String BARCODE = "Barcode";
+    private static final String HRI = "Human-readable text";
+    private static final String ADVANCED = "Advanced";
 
     private static final Map<Class<? extends LabelElement>, ElementSchema> SCHEMAS = Map.of(
             TextElement.class, textSchema(),
@@ -112,9 +115,28 @@ public final class ElementSchemas {
         return p;
     }
 
+    /**
+     * Shared properties that belong <em>after</em> the type's own, so the rarely-used ones never push
+     * the type-specific page down the panel.
+     */
+    private static List<PropertyDescriptor> advanced() {
+        List<PropertyDescriptor> p = new ArrayList<>();
+        // An optional expression; when set and false at print time the element is skipped
+        // (lbl-format.md §4.1). Evaluated by the Phase 12 engine — stored verbatim here.
+        p.add(PropertyDescriptor.text(
+                "printCondition",
+                "Print when",
+                ADVANCED,
+                e -> e.properties().printCondition(),
+                (e, v) -> e.withProperties(e.properties().withPrintCondition(blankToNull(v)))));
+        return p;
+    }
+
+    /** Category order is General, Geometry, the type's own pages, then Advanced. */
     private static ElementSchema schema(Class<? extends LabelElement> type, List<PropertyDescriptor> specific) {
         List<PropertyDescriptor> all = new ArrayList<>(common());
         all.addAll(specific);
+        all.addAll(advanced());
         return new ElementSchema(type, all);
     }
 
@@ -444,15 +466,16 @@ public final class ElementSchemas {
                             b.hri(),
                             b.rotationQuadrant());
                 }));
+        // Stored as degrees, offered as the four legal quarter-turns — a free integer field would let
+        // a stepper produce 1°, which the element rejects.
         p.add(PropertyDescriptor.enumProp(
-                "hriPosition",
-                "HRI position",
+                "rotationQuadrant",
+                "Rotation",
                 BARCODE,
-                HriPosition.class,
-                e -> barcode(e).hri().position(),
+                Quadrant.class,
+                e -> Quadrant.fromDegrees(barcode(e).rotationQuadrant()),
                 (e, v) -> {
                     BarcodeElement b = barcode(e);
-                    Hri h = b.hri();
                     return new BarcodeElement(
                             b.properties(),
                             b.symbology(),
@@ -461,15 +484,67 @@ public final class ElementSchemas {
                             b.barHeightMm(),
                             b.quietZoneMm(),
                             b.checkDigit(),
-                            new Hri(v, h.font(), h.showCheckDigit(), h.customText()),
-                            b.rotationQuadrant());
+                            b.hri(),
+                            v.degrees());
                 }));
+        p.add(PropertyDescriptor.enumProp(
+                "hriPosition",
+                "Position",
+                HRI,
+                HriPosition.class,
+                e -> barcode(e).hri().position(),
+                (e, v) -> withHri(e, h -> new Hri(v, h.font(), h.showCheckDigit(), h.customText()))));
+        p.add(PropertyDescriptor.font(
+                "hriFont",
+                "Font",
+                HRI,
+                FontSpec.class,
+                e -> barcode(e).hri().font(),
+                (e, v) -> withHri(e, h -> new Hri(h.position(), v, h.showCheckDigit(), h.customText()))));
+        p.add(PropertyDescriptor.bool(
+                "hriShowCheckDigit",
+                "Show check digit",
+                HRI,
+                e -> barcode(e).hri().showCheckDigit(),
+                (e, v) -> withHri(e, h -> new Hri(h.position(), h.font(), v, h.customText()))));
+        p.add(PropertyDescriptor.text(
+                "hriCustomText",
+                "Custom text",
+                HRI,
+                e -> barcode(e).hri().customText(),
+                (e, v) -> withHri(e, h -> new Hri(h.position(), h.font(), h.showCheckDigit(), blankToNull(v)))));
         return schema(BarcodeElement.class, p);
     }
 
+    /** Rebuild a barcode with a transformed HRI block, leaving everything else alone. */
+    private static LabelElement withHri(LabelElement element, java.util.function.UnaryOperator<Hri> change) {
+        BarcodeElement b = barcode(element);
+        return new BarcodeElement(
+                b.properties(),
+                b.symbology(),
+                b.value(),
+                b.xDimensionMm(),
+                b.barHeightMm(),
+                b.quietZoneMm(),
+                b.checkDigit(),
+                change.apply(b.hri()),
+                b.rotationQuadrant());
+    }
+
+    /** An emptied text field means "unset", not an empty string. */
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
+    }
+
     private static ElementSchema groupSchema() {
-        // Groups expose only the common properties; their children are edited on the canvas.
-        return schema(GroupElement.class, List.of());
+        // A group's own geometry and the common properties are editable; its children are edited on
+        // the canvas, so they appear here only as a count.
+        List<PropertyDescriptor> p = new ArrayList<>();
+        p.add(PropertyDescriptor.readOnly(
+                "childCount", "Children", GENERAL, PropertyKind.INTEGER, Integer.class, e -> ((GroupElement) e)
+                        .children()
+                        .size()));
+        return schema(GroupElement.class, p);
     }
 
     // --- shared shape helpers (stroke/fill decomposed into inspector-friendly scalars) ---

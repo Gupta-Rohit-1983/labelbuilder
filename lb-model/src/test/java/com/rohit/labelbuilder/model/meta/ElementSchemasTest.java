@@ -105,4 +105,17 @@ class ElementSchemasTest {
         ElementSchema schema = ElementSchemas.schemaFor(text);
         assertThat(schema.byCategory().keySet()).containsSequence("General", "Geometry", "Text");
     }
+
+    @Test
+    void advancedIsAlwaysTheLastCategory() {
+        // Rarely-touched settings must not push a type's own properties down the panel.
+        for (Class<?> type : allElementTypes()) {
+            @SuppressWarnings("unchecked")
+            ElementSchema schema = ElementSchemas.schemaFor((Class<? extends LabelElement>) type);
+
+            assertThat(schema.byCategory().keySet().stream().reduce((first, second) -> second))
+                    .as("last category of %s", type.getSimpleName())
+                    .contains("Advanced");
+        }
+    }
 }

@@ -7,13 +7,17 @@ import com.rohit.labelbuilder.core.command.GroupCommand;
 import com.rohit.labelbuilder.core.command.RemoveElementCommand;
 import com.rohit.labelbuilder.core.command.ReorderCommand;
 import com.rohit.labelbuilder.core.command.SetBoundsCommand;
+import com.rohit.labelbuilder.core.command.SetPropertyCommand;
 import com.rohit.labelbuilder.core.command.UngroupCommand;
 import com.rohit.labelbuilder.model.element.GroupElement;
 import com.rohit.labelbuilder.model.element.LabelElement;
 import com.rohit.labelbuilder.model.geom.Bounds;
+import com.rohit.labelbuilder.model.meta.ElementSchema;
+import com.rohit.labelbuilder.model.meta.ElementSchemas;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -59,6 +63,26 @@ public final class EditCommands {
             adds.add(new AddElementCommand(copy));
         }
         return Optional.of(adds.size() == 1 ? adds.getFirst() : new CompositeCommand("Duplicate", adds));
+    }
+
+    /**
+     * Set one metadata-described property across a selection — the multi-element inspector edit
+     * (Phase 9d). Elements already holding the value are skipped, so an edit that only changes three
+     * of eight selected elements records exactly those three, and the whole set is one undo step.
+     */
+    public static Optional<Command> setProperty(List<LabelElement> elements, String key, Object value, String label) {
+        List<Command> edits = new ArrayList<>();
+        for (LabelElement element : elements) {
+            ElementSchema schema = ElementSchemas.schemaFor(element);
+            if (schema.property(key).isEmpty() || Objects.equals(schema.get(element, key), value)) {
+                continue;
+            }
+            edits.add(new SetPropertyCommand(element.id(), key, value));
+        }
+        if (edits.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(edits.size() == 1 ? edits.getFirst() : new CompositeCommand(label, edits));
     }
 
     /** Remove the given elements; one undo step regardless of how many. */

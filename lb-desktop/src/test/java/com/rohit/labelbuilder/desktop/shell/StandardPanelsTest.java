@@ -9,6 +9,7 @@ import com.rohit.labelbuilder.desktop.document.DocumentSession;
 import com.rohit.labelbuilder.desktop.panels.LayersPanel;
 import com.rohit.labelbuilder.desktop.panels.ObjectsPanel;
 import com.rohit.labelbuilder.desktop.panels.ToolboxPanel;
+import com.rohit.labelbuilder.desktop.panels.inspector.PropertyInspectorPanel;
 import javafx.geometry.Side;
 import org.junit.jupiter.api.Test;
 
@@ -29,11 +30,15 @@ class StandardPanelsTest {
         return new LayersPanel(new DocumentSession());
     }
 
+    private static PropertyInspectorPanel inspector() {
+        return new PropertyInspectorPanel(new DocumentSession(), new StatusBus());
+    }
+
     @Test
     void registersTheFourStandardPanels() {
         DockPanelRegistry registry = new DockPanelRegistry();
 
-        new StandardPanels(registry, toolbox(), objects(), layers()).registerAll();
+        new StandardPanels(registry, toolbox(), objects(), layers(), inspector()).registerAll();
 
         assertThat(registry.ids())
                 .containsExactlyInAnyOrder(
