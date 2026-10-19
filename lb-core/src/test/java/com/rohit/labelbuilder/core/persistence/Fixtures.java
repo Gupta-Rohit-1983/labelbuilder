@@ -15,6 +15,7 @@ import com.rohit.labelbuilder.model.element.RectangleElement;
 import com.rohit.labelbuilder.model.element.TextElement;
 import com.rohit.labelbuilder.model.geom.Bounds;
 import com.rohit.labelbuilder.model.style.CheckDigitMode;
+import com.rohit.labelbuilder.model.style.ErrorCorrection;
 import com.rohit.labelbuilder.model.style.Fill;
 import com.rohit.labelbuilder.model.style.FontSpec;
 import com.rohit.labelbuilder.model.style.Hri;
@@ -43,16 +44,17 @@ final class Fixtures {
         EllipseElement ellipse = new EllipseElement(props("e1", 40, 2, 15, 15), Stroke.solid(0.2), Fill.none());
         LineElement line = LineElement.of(props("l1", 0, 30, 100, 0), Stroke.solid(0.25));
         ImageElement image = ImageElement.of(props("i1", 70, 5, 20, 20), LOGO);
-        BarcodeElement barcode = new BarcodeElement(
-                props("b1", 5, 25, 50, 15),
-                Symbology.CODE_128,
-                "${Product.Code}",
-                0.25,
-                12.0,
-                2.5,
-                CheckDigitMode.AUTO,
-                Hri.below(FontSpec.of("Arial", 8)),
-                0);
+        BarcodeElement barcode = BarcodeElement.of(
+                        props("b1", 5, 25, 50, 15),
+                        Symbology.CODE_128,
+                        "${Product.Code}",
+                        0.25,
+                        12.0,
+                        2.5,
+                        CheckDigitMode.AUTO,
+                        Hri.below(FontSpec.of("Arial", 8)))
+                // A non-default level so the round-trip test would catch it being dropped.
+                .withErrorCorrection(ErrorCorrection.Q);
         TextElement grouped = TextElement.of(props("g-child", 10, 40, 20, 5), "grouped", FontSpec.of("Arial", 8));
         GroupElement group = new GroupElement(props("grp", 10, 40, 20, 5), List.of(grouped));
 

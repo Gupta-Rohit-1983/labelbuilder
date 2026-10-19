@@ -1,5 +1,10 @@
 package com.rohit.labelbuilder.render.scene;
 
+import com.rohit.labelbuilder.barcode.Barcode1DEncoder;
+import com.rohit.labelbuilder.barcode.Barcode2DEncoder;
+import com.rohit.labelbuilder.barcode.BarcodeException;
+import com.rohit.labelbuilder.barcode.BarcodeGeometry;
+import com.rohit.labelbuilder.barcode.BarcodeRequest;
 import com.rohit.labelbuilder.model.document.LabelDocument;
 import com.rohit.labelbuilder.model.document.Layer;
 import com.rohit.labelbuilder.model.element.BarcodeElement;
@@ -106,13 +111,107 @@ public final class SceneMapper {
                         t.font().bold()));
             }
             case ImageElement i -> placeholder(out, b, rot, "Image");
-            case BarcodeElement bc -> placeholder(out, b, rot, bc.symbology().name());
+            case BarcodeElement bc -> appendBarcode(out, bc);
             case GroupElement g -> {
                 for (LabelElement child : g.children()) {
                     append(out, child, layers);
                 }
             }
         }
+    }
+
+    /**
+     * Encode a barcode and emit its bars (and human-readable text) as primitives (Phase 10d).
+     *
+     * <p>Rendered at its <b>natural size</b> from the element's X-dimension, anchored at the element's
+     * top-left — not stretched to the bounds. The X-dimension is what decides whether a scanner can
+     * read the symbol, so silently rescaling it to fill a box would quietly produce unscannable
+     * labels. Fitting a barcode to a box is an explicit action ({@code BarcodeAutoSizer}).
+     *
+     * <p>A value that will not encode becomes a labelled placeholder rather than an exception: the
+     * canvas repaints constantly while the user types, and a half-typed value must show as a problem,
+     * never bring the renderer down.
+     */
+    private static void appendBarcode(List<RenderPrimitive> out, BarcodeElement element) {
+        Bounds b = element.bounds();
+        double rot = element.rotationDeg();
+        BarcodeGeometry geometry;
+        try {
+            BarcodeRequest request = BarcodeRequest.from(element);
+            geometry = element.symbology().isTwoDimensional()
+                    ? Barcode2DEncoder.encode(request)
+                    : Barcode1DEncoder.encode(request);
+        } catch (BarcodeException e) {
+            placeholder(out, b, rot, element.symbology() + "?");
+            return;
+        }
+
+        // Each bar is rotated about the *element's* centre, not its own. A rectangle turned about an
+        // outside point is the same rectangle turned about its own centre and moved so its centre
+        // lands on the rotated position — which is exactly what RenderPrimitive.Rect can express.
+        double centreX = b.centerXMm();
+        double centreY = b.centerYMm();
+        for (BarcodeGeometry.Bar bar : geometry.bars()) {
+            double barCentreX = b.xMm() + bar.xMm() + bar.widthMm() / 2;
+            double barCentreY = b.yMm() + bar.yMm() + bar.heightMm() / 2;
+            double[] turned = rotateAbout(barCentreX, barCentreY, centreX, centreY, rot);
+            out.add(new RenderPrimitive.Rect(
+                    turned[0] - bar.widthMm() / 2,
+                    turned[1] - bar.heightMm() / 2,
+                    bar.widthMm(),
+                    bar.heightMm(),
+                    rot,
+                    RenderColor.BLACK,
+                    null,
+                    0));
+        }
+        for (BarcodeGeometry.Caption caption : geometry.captions()) {
+            appendCaption(out, caption, b, centreX, centreY, rot);
+        }
+    }
+
+    /**
+     * Place one human-readable caption. {@code RenderPrimitive.Text} has no alignment, so a centred
+     * caption is anchored using an estimated text width. The estimate is crude, but both renderers use
+     * the same one, so the design view and the printout still agree — which is the property that
+     * matters here.
+     */
+    private static void appendCaption(
+            List<RenderPrimitive> out,
+            BarcodeGeometry.Caption caption,
+            Bounds b,
+            double centreX,
+            double centreY,
+            double rot) {
+        double anchorX = b.xMm() + caption.xMm();
+        if (caption.align() == BarcodeGeometry.CaptionAlign.CENTER) {
+            double midX = b.xMm() + (caption.xMm() + caption.endXMm()) / 2;
+            anchorX = midX - estimatedTextWidthMm(caption) / 2;
+        } else if (caption.align() == BarcodeGeometry.CaptionAlign.RIGHT) {
+            anchorX = b.xMm() + caption.endXMm() - estimatedTextWidthMm(caption);
+        }
+        double anchorY = b.yMm() + caption.baselineYMm();
+        double[] turned = rotateAbout(anchorX, anchorY, centreX, centreY, rot);
+        out.add(new RenderPrimitive.Text(
+                turned[0], turned[1], caption.text(), caption.fontSizeMm(), RenderColor.BLACK, rot, false));
+    }
+
+    /** A rough average glyph width; enough to centre a short numeric caption believably. */
+    private static double estimatedTextWidthMm(BarcodeGeometry.Caption caption) {
+        return caption.text().length() * caption.fontSizeMm() * 0.6;
+    }
+
+    /** Rotate (x, y) clockwise about (cx, cy) by {@code deg}. */
+    private static double[] rotateAbout(double x, double y, double cx, double cy, double deg) {
+        if (deg == 0) {
+            return new double[] {x, y};
+        }
+        double r = Math.toRadians(deg);
+        double cos = Math.cos(r);
+        double sin = Math.sin(r);
+        double dx = x - cx;
+        double dy = y - cy;
+        return new double[] {cx + dx * cos - dy * sin, cy + dx * sin + dy * cos};
     }
 
     /** A boxed, labelled stand-in for an element whose real renderer has not landed. */

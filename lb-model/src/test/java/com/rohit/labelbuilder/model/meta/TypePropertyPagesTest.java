@@ -29,7 +29,7 @@ class TypePropertyPagesTest {
     }
 
     private static BarcodeElement barcode() {
-        return new BarcodeElement(
+        return BarcodeElement.of(
                 props("b1"),
                 Symbology.CODE_128,
                 "12345678",
@@ -37,8 +37,7 @@ class TypePropertyPagesTest {
                 12,
                 2.5,
                 CheckDigitMode.AUTO,
-                Hri.below(FontSpec.of("Arial", 8)),
-                0);
+                Hri.below(FontSpec.of("Arial", 8)));
     }
 
     private static Object get(LabelElement element, String key) {

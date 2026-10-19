@@ -25,6 +25,7 @@ import com.rohit.labelbuilder.model.geom.Bounds;
 import com.rohit.labelbuilder.model.style.AutoFit;
 import com.rohit.labelbuilder.model.style.CheckDigitMode;
 import com.rohit.labelbuilder.model.style.DashStyle;
+import com.rohit.labelbuilder.model.style.ErrorCorrection;
 import com.rohit.labelbuilder.model.style.Fill;
 import com.rohit.labelbuilder.model.style.FontSpec;
 import com.rohit.labelbuilder.model.style.Hri;
@@ -376,6 +377,7 @@ public final class DocumentJson {
         }
         o.set("hri", h);
         o.put("rotationQuadrant", b.rotationQuadrant());
+        o.put("errorCorrection", b.errorCorrection().name());
     }
 
     private static BarcodeElement readBarcode(JsonNode n, ElementProperties p) {
@@ -394,7 +396,12 @@ public final class DocumentJson {
                 n.get("quietZoneMm").asDouble(),
                 CheckDigitMode.valueOf(n.get("checkDigit").asText()),
                 hri,
-                n.get("rotationQuadrant").asInt());
+                n.get("rotationQuadrant").asInt(),
+                // Added after schema 1 shipped; an older file simply has no entry, and the format is
+                // forward-tolerant by design (lbl-format.md §7), so default rather than reject.
+                n.hasNonNull("errorCorrection")
+                        ? ErrorCorrection.valueOf(n.get("errorCorrection").asText())
+                        : ErrorCorrection.M);
     }
 
     // --- shared value types ---

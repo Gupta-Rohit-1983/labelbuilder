@@ -11,6 +11,7 @@ import com.rohit.labelbuilder.model.element.TextElement;
 import com.rohit.labelbuilder.model.style.AutoFit;
 import com.rohit.labelbuilder.model.style.CheckDigitMode;
 import com.rohit.labelbuilder.model.style.DashStyle;
+import com.rohit.labelbuilder.model.style.ErrorCorrection;
 import com.rohit.labelbuilder.model.style.Fill;
 import com.rohit.labelbuilder.model.style.FontSpec;
 import com.rohit.labelbuilder.model.style.Hri;
@@ -395,57 +396,21 @@ public final class ElementSchemas {
                         "X-dimension (mm)",
                         BARCODE,
                         e -> barcode(e).xDimensionMm(),
-                        (e, v) -> {
-                            BarcodeElement b = barcode(e);
-                            return new BarcodeElement(
-                                    b.properties(),
-                                    b.symbology(),
-                                    b.value(),
-                                    v,
-                                    b.barHeightMm(),
-                                    b.quietZoneMm(),
-                                    b.checkDigit(),
-                                    b.hri(),
-                                    b.rotationQuadrant());
-                        })
+                        (e, v) -> barcode(e).withXDimensionMm(v))
                 .withRange(0.0, null));
         p.add(PropertyDescriptor.decimal(
                         "barHeightMm",
                         "Bar height (mm)",
                         BARCODE,
                         e -> barcode(e).barHeightMm(),
-                        (e, v) -> {
-                            BarcodeElement b = barcode(e);
-                            return new BarcodeElement(
-                                    b.properties(),
-                                    b.symbology(),
-                                    b.value(),
-                                    b.xDimensionMm(),
-                                    v,
-                                    b.quietZoneMm(),
-                                    b.checkDigit(),
-                                    b.hri(),
-                                    b.rotationQuadrant());
-                        })
+                        (e, v) -> barcode(e).withBarHeightMm(v))
                 .withRange(0.0, null));
         p.add(PropertyDescriptor.decimal(
                         "quietZoneMm",
                         "Quiet zone (mm)",
                         BARCODE,
                         e -> barcode(e).quietZoneMm(),
-                        (e, v) -> {
-                            BarcodeElement b = barcode(e);
-                            return new BarcodeElement(
-                                    b.properties(),
-                                    b.symbology(),
-                                    b.value(),
-                                    b.xDimensionMm(),
-                                    b.barHeightMm(),
-                                    v,
-                                    b.checkDigit(),
-                                    b.hri(),
-                                    b.rotationQuadrant());
-                        })
+                        (e, v) -> barcode(e).withQuietZoneMm(v))
                 .withRange(0.0, null));
         p.add(PropertyDescriptor.enumProp(
                 "checkDigit",
@@ -453,19 +418,14 @@ public final class ElementSchemas {
                 BARCODE,
                 CheckDigitMode.class,
                 e -> barcode(e).checkDigit(),
-                (e, v) -> {
-                    BarcodeElement b = barcode(e);
-                    return new BarcodeElement(
-                            b.properties(),
-                            b.symbology(),
-                            b.value(),
-                            b.xDimensionMm(),
-                            b.barHeightMm(),
-                            b.quietZoneMm(),
-                            v,
-                            b.hri(),
-                            b.rotationQuadrant());
-                }));
+                (e, v) -> barcode(e).withCheckDigit(v)));
+        p.add(PropertyDescriptor.enumProp(
+                "errorCorrection",
+                "Error correction",
+                BARCODE,
+                ErrorCorrection.class,
+                e -> barcode(e).errorCorrection(),
+                (e, v) -> barcode(e).withErrorCorrection(v)));
         // Stored as degrees, offered as the four legal quarter-turns — a free integer field would let
         // a stepper produce 1°, which the element rejects.
         p.add(PropertyDescriptor.enumProp(
@@ -474,19 +434,7 @@ public final class ElementSchemas {
                 BARCODE,
                 Quadrant.class,
                 e -> Quadrant.fromDegrees(barcode(e).rotationQuadrant()),
-                (e, v) -> {
-                    BarcodeElement b = barcode(e);
-                    return new BarcodeElement(
-                            b.properties(),
-                            b.symbology(),
-                            b.value(),
-                            b.xDimensionMm(),
-                            b.barHeightMm(),
-                            b.quietZoneMm(),
-                            b.checkDigit(),
-                            b.hri(),
-                            v.degrees());
-                }));
+                (e, v) -> barcode(e).withRotationQuadrant(v.degrees())));
         p.add(PropertyDescriptor.enumProp(
                 "hriPosition",
                 "Position",
@@ -519,16 +467,7 @@ public final class ElementSchemas {
     /** Rebuild a barcode with a transformed HRI block, leaving everything else alone. */
     private static LabelElement withHri(LabelElement element, java.util.function.UnaryOperator<Hri> change) {
         BarcodeElement b = barcode(element);
-        return new BarcodeElement(
-                b.properties(),
-                b.symbology(),
-                b.value(),
-                b.xDimensionMm(),
-                b.barHeightMm(),
-                b.quietZoneMm(),
-                b.checkDigit(),
-                change.apply(b.hri()),
-                b.rotationQuadrant());
+        return b.withHri(change.apply(b.hri()));
     }
 
     /** An emptied text field means "unset", not an empty string. */

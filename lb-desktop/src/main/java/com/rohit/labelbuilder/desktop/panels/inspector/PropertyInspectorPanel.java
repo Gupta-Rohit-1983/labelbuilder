@@ -3,6 +3,7 @@ package com.rohit.labelbuilder.desktop.panels.inspector;
 import com.rohit.labelbuilder.core.edit.EditCommands;
 import com.rohit.labelbuilder.desktop.document.DocumentSession;
 import com.rohit.labelbuilder.desktop.shell.StatusBus;
+import com.rohit.labelbuilder.model.element.BarcodeElement;
 import com.rohit.labelbuilder.model.element.LabelElement;
 import com.rohit.labelbuilder.model.meta.ElementSchema;
 import com.rohit.labelbuilder.model.meta.ElementSchemas;
@@ -154,6 +155,11 @@ public class PropertyInspectorPanel {
                 header.setWrapText(true);
                 header.getStyleClass().add("inspector-hint");
                 content.getChildren().add(header);
+            } else if (selection.getFirst() instanceof BarcodeElement barcode) {
+                // The inspector's one type-specific component: a barcode can be valid as text and
+                // still unscannable, so it gets a live preview and the validator's warnings. Property
+                // editing below stays entirely metadata-driven.
+                content.getChildren().add(BarcodePreview.create(barcode));
             }
 
             // Only properties every selected element exposes; for one element that is its whole schema.

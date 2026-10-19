@@ -46,7 +46,7 @@ public final class ElementFactory {
             case LINE -> LineElement.of(props, Stroke.solid(0.3));
             case IMAGE -> ImageElement.of(props, PLACEHOLDER_ASSET);
             case BARCODE ->
-                new BarcodeElement(
+                BarcodeElement.of(
                         props,
                         Symbology.CODE_128,
                         "12345678",
@@ -54,8 +54,7 @@ public final class ElementFactory {
                         Math.max(1, bounds.heightMm()),
                         2.5,
                         CheckDigitMode.AUTO,
-                        Hri.below(FontSpec.of("Arial", 8)),
-                        0);
+                        Hri.below(FontSpec.of("Arial", 8)));
         };
     }
 
