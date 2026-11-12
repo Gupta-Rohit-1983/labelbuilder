@@ -90,15 +90,15 @@ Requirement IDs are stable and referenced from tests and phase deliverables.
 
 | ID | Requirement | Phase |
 |---|---|---|
-| FR-DS-01 | A document may have multiple named data sources. | 11a |
+| FR-DS-01 | A document may have multiple named data sources. | 11f |
 | FR-DS-02 | Records are exposed as an ordered, typed, cursor-based `RecordSet`; large sets stream rather than fully materialise. | 11a/18 |
 | FR-DS-03 | CSV source: file selection, delimiter/quote/encoding detection, header row option, type inference. | 11b |
 | FR-DS-04 | Excel source: `.xlsx`/`.xls`, sheet and cell-range selection. | 11b |
 | FR-DS-05 | JDBC source: SQL Server and MySQL first-class; others via user-supplied driver JARs. | 11c |
-| FR-DS-06 | JDBC: connection wizard, test-connection, schema browser, SQL editor with result preview, parameterised queries. | 11c |
-| FR-DS-07 | REST source: URL, method, headers, basic/bearer auth, JSON record-path selector. | 11d |
+| FR-DS-06 | JDBC: connection wizard, test-connection, schema browser, SQL editor with result preview, parameterised queries. | 11c/11d |
+| FR-DS-07 | REST source: URL, method, headers, basic/bearer auth, JSON record-path selector. | 23d |
 | FR-DS-08 | Prompt-at-print source: named fields with type, default, validation and optional pick-list, rendered as a form at print time. | 11e |
-| FR-DS-09 | Stored credentials are encrypted at rest and never written to the `.lbl` file in plaintext. | 11a |
+| FR-DS-09 | Stored credentials are encrypted at rest and never written to the `.lbl` file in plaintext. | 11c/16a/21 |
 | FR-DS-10 | Data Sources panel lists sources and their field trees; fields are draggable to the canvas. | 11f |
 
 ### 3.5 Variable Data & Expressions (FR-V)
@@ -209,7 +209,7 @@ Requirement IDs are stable and referenced from tests and phase deliverables.
 | NFR-08 | Barcode scan success at documented minimum X-dimension | 100% on reference scanner | 19 |
 | NFR-09 | Client works offline for | ≥ 8 h (configurable grace) | 21b |
 | NFR-10 | Installer is silent-installable for IT rollout | `msiexec /qn` | 20 |
-| NFR-11 | Credentials at rest | Encrypted, never plaintext on disk | 11a/21 |
+| NFR-11 | Credentials at rest | Encrypted, never plaintext on disk | 11c/16a/21 |
 | NFR-12 | Expression evaluation | Sandboxed, no code execution | 12b |
 
 ---

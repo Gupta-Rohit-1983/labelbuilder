@@ -158,6 +158,17 @@ Barcode4J for 1D (true X-dimension and quiet-zone control), ZXing for 2D (archit
   (credentials never in `.lbl` — risk R-08)
 - **11d** — Query builder, parameterized queries, live preview
 - **11e** — Data binding: bind element properties to record fields
+- **11f** — Named data sources **in the document** (FR-DS-01): `LabelDocument.dataSources` +
+  `.lbl` round-trip per lbl-format.md §5, keeping invariant §8.1 (byte-identical save→load→save);
+  then the **Data Sources panel** (FR-DS-10) listing sources and their field trees, fields
+  draggable to the canvas
+
+> **11f added 2026-11-12**, reconciling this file with SRS.md. FR-DS-01, FR-DS-07 and FR-DS-10
+> were tagged to Phase 11 in the SRS but appeared in no phase here, so three requirements were
+> unscheduled rather than merely misnumbered. FR-DS-01 is a prerequisite for the panel, for
+> Phase 13 (a print run must open the sources a template names) and for Phase 14, so it lands
+> here; the REST source (FR-DS-07) has no dependents and moves to Phase 23, where HTTP, auth and
+> endpoint configuration already live.
 
 ## Phase 12 — Variable & Expression Engine *(2 weeks)*
 
@@ -254,6 +265,11 @@ email-on-error), dry-run testing, execution logs.
 - **23a** — Integration engine: trigger/transform/action pipeline + persistence
 - **23b** — Watch-folder + HTTP triggers, print action, run logging
 - **23c** — Integration Builder UI + dry-run with sample data (FR-A-06)
+- **23d** — **REST data source** (FR-DS-07): URL, method, headers, basic/bearer auth, JSON
+  record-path selector. Moved here from Phase 11 on 2026-11-12 — it is the one data source with
+  no dependents, and this phase already owns HTTP, auth and endpoint configuration. Needs the
+  JSON row reader extracted out of `JsonDataSource` into a shared package, so the dotted
+  flattening and token-typing of Phase 11b are not written a second time.
 
 ## Phase 24 — Licensing & Cloud Sync *(2 weeks)*
 
