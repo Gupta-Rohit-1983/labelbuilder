@@ -161,23 +161,200 @@ interface Command { void execute(); void undo(); String description(); }
 and coalescing (a 200-event drag becomes one undo step). Enforced by convention plus a Checkstyle/
 ArchUnit rule that model setters are not called outside `lb-core`.
 
-### 5.3 `DataSource` / `RecordSet` / `Record` (lb-data, Phase 11a)
+### 5.3 `DataSource` / `RecordSet` / `DataRecord` (lb-data, Phase 11a — implemented)
 ```
-interface RecordSet extends Iterable<Record>, AutoCloseable { int size(); Record get(int i); }
+interface RecordSet extends Iterable<DataRecord>, AutoCloseable {
+    List<FieldDefinition> fields();
+    boolean next();           // advance; false when exhausted
+    DataRecord current();     // the row the cursor is on
+    OptionalLong size();      // empty when the source cannot know
+    void close();
+}
 ```
-**Cursor-based and streaming.** Never `List<Record>` an entire table — NFR-05 requires a 10 000-record
-batch at 1 GB heap. Implementations: `manual`, `csv`, `excel`, `jdbc`, `rest`.
+**Cursor-based and streaming.** Never `List<DataRecord>` an entire table — NFR-05 requires a
+10 000-record batch at 1 GB heap. Implementations: `manual`, `csv`, `excel`, `jdbc`, `rest`.
+
+Two deliberate changes from this section's original sketch, made when implementing it:
+
+- **No `Record get(int i)` and no `int size()`.** Random access and a known row count are precisely
+  what a forward-only cursor cannot offer; supporting them would force the buffering R-06 exists to
+  prevent. `size()` is an `OptionalLong`, and a streaming source answers empty rather than counting
+  by fetching everything.
+- **`DataRecord`, not `Record`.** A type named `Record` shadows `java.lang.Record` for every class in
+  the same package — a trap in the module most likely to declare records of its own.
+
+`AbstractRecordSet` holds the cursor state machine (no current row before the first `next()` or after
+exhaustion, exhausted latches, a closed cursor refuses, `close()` is idempotent) so each format only
+implements `advance()`. Every source inherits it, which is why the contract is uniform rather than
+re-derived four times.
+
+### 5.3.1 File sources (lb-data, Phase 11b — implemented)
+
+`CsvDataSource`, `ExcelDataSource`, `JsonDataSource`, `XmlDataSource`, reached through
+`FileDataSources.forFile`. Three rules they share, each chosen for the printed output rather than for
+the data model:
+
+- **Values are handed over as the file holds them.** `1.50` stays `"1.50"`, not the double 1.5; a
+  price label missing its pence is a defect somebody has to explain to a customer. The inferred
+  `FieldType` is metadata for binding, sorting and the query builder — never a conversion
+  instruction. Excel is included: its cells are read through their own number format, and formulas
+  through their **cached** results, so what prints is what the operator approved on screen.
+- **`TypeInference` keeps ambiguous columns textual.** A leading zero (`0012`) or a digit string too
+  long for a `long` (an SSCC, an EPC) stays `STRING`, because a consumer that round-trips it through a
+  number drops exactly the digits a barcode needs. `1`/`0` are quantities, not booleans, and
+  locale-formatted dates stay text rather than being read in the wrong convention.
+- **Nothing is dropped silently.** Blank and duplicate header cells are renamed positionally
+  (`Column2`, `Description_2`), rows wider than the schema keep their extra cells, and a short row
+  leaves the column present but empty. A malformed export should be visible, not quietly trimmed.
+
+XML refuses DTDs and external entities: a feed is often supplied by whoever is sending the order, and
+the default StAX configuration resolves `file:///…` entities (XXE).
+
+### 5.3.2 JDBC sources + Connection Manager (lb-data, Phase 11c — implemented)
+
+```
+JdbcDataSource(name, ConnectionManager, configId, sql, cachedFields?)
+ConnectionManager.connect(configId) → resolves the secret from CredentialStore, then wipes it
+```
+
+**Risk R-08 is structural here, not procedural.** `ConnectionConfig` has no password component, and its
+constructor rejects a password-shaped property key or a URL carrying `password=`/`pwd=`/`user:secret@`.
+A credential is *inexpressible* in the object a template refers to, so the `.lbl` invariant §8.5 and
+`LblValidator.assertNoCredentialLeak` are a last line of defence rather than the only one. The secret
+is resolved by config id at the moment a connection opens, as a `char[]` the manager wipes afterwards.
+
+`CredentialStore` has two implementations: `InMemoryCredentialStore` (this session only — a
+"remember for now" prompt, and the offline grace period of FR-S-04) and `SealedCredentialStore`
+(AES-GCM via `SecretCipher`, which is the encryption only — **where the key lives is deliberately not
+decided here**, since the client's store arrives in Phase 16a and the server's in Phase 21, and each
+will hold it differently). GCM rather than CBC so a tampered store fails to open instead of
+decrypting to rubbish that then gets sent to a production database as a password.
+
+Three other decisions worth knowing:
+
+- **`JdbcDialect.streamingFetchSize()` is load-bearing.** On MySQL, Connector/J reads the entire
+  result set into the client unless the fetch size is exactly `Integer.MIN_VALUE`. A cursor
+  *interface* cannot deliver streaming on its own — the driver has to be told, per vendor — so R-06
+  depends on this method being right.
+- **The schema is read without running the query.** `PreparedStatement.getMetaData()` describes the
+  result shape, so designing against a report that takes a minute costs nothing; a cached schema
+  short-circuits even that, which is how a template stays editable with the database out of reach.
+- **Parameters are always bound, never substituted.** `NamedQuery` rewrites `:name` to `?` (skipping
+  literals, quoted and bracketed identifiers, comments and PostgreSQL `::` casts) — the same stance as
+  R-04 takes on expressions: the dangerous construct is made unavailable rather than made safe. A
+  parameter with no supplied value is refused, because binding NULL would succeed and return the wrong
+  rows.
+
+Connections are not pooled: a merge opens a cursor, streams it and closes it, and a pool would keep
+connections — each holding a resolved credential — alive past the job that needed them. `connect` is
+the seam if the server ever needs pooling.
+
+### 5.3.3 Query builder & live preview (lb-data, Phase 11d — implemented)
+
+```
+QuerySpec  ──SqlRenderer.render(spec, dialect)──▶  RenderedQuery  ──▶  BuiltQuerySource
+                                                   (sql + bound literals)
+DataPreviews.of(anyDataSource, params, maxRows) ──▶ DataPreview
+```
+
+**The query is stored structurally, not as text.** `QuerySpec` keeps the from/columns/joins/filters/
+sort/limit, so a query reopens in the builder next month and re-renders for whatever dialect the
+connection now points at. A template holding only a SQL string would be editable in the SQL editor
+alone, and wrong the moment the database moved from SQL Server to PostgreSQL.
+
+**`SqlRenderer` has no code path that concatenates a value.** A literal the operator typed becomes a
+generated `:p1` placeholder whose value goes in `RenderedQuery.literalValues()`; a declared parameter
+keeps its own name. The builder therefore cannot emit an injectable statement whatever is typed into
+it, and the class deliberately offers no "quote a value" helper to misuse — the same stance R-04 takes
+on expressions. Identifiers *are* written into the text, quoted per dialect, because they have to be;
+they come from the schema browser rather than from free text. The catalog is left out of a table
+reference on purpose: a three-part name ties a query to one database, and a template promoted from
+test to production would read from test.
+
+**`ParameterValues` converts, because everything that supplies a parameter supplies text** — a prompt
+field, a command line, a watched file's name. Bound as text, `qty >= '7'` compares as a string, so
+`"10" < "5"` and the run selects the wrong products with no exception and no empty result. The
+declared `FieldType` decides the conversion; a value that cannot be converted is an error while the
+operator can still retype it. Blank input counts as *absent* so an optional parameter's default stays
+reachable, and every missing required parameter is reported in one message rather than one per attempt.
+
+**`DataPreview` is the one place rows are deliberately materialised.** The exception is bounded: at
+most `DEFAULT_MAX_ROWS` (100), one extra read to report `truncated()`, then the cursor is closed —
+R-06 forbids holding a table to print it, not holding a hundred rows to show them. The preview never
+throws, because a broken query, a missing file and an unreachable server are all things the pane has
+to display; and it carries the columns even when nothing matched, so a label can be laid out against a
+query that returns no rows today. It takes the `DataSource` interface, so one implementation previews
+CSV, Excel, JSON, XML and JDBC alike — the dividend from making `DataSource` a factory for cursors in
+11a rather than five reader APIs.
+
+A note for anyone adding ordered output here: `Map.copyOf` does **not** preserve insertion order, and
+an immutable map's iteration order is scrambled by a salt randomised once per JVM. `RenderedQuery`
+uses an unmodifiable `LinkedHashMap` so the bound values list in the order they appear in the SQL;
+using `copyOf` made that order differ between a single-module test run and the full reactor.
+
+**Known limit (FR-DS-02, Phase 18):** POI parses a workbook into memory, because `.xlsx` is a ZIP of
+XML with a shared string table rather than a line-oriented stream. The cursor still yields one row at
+a time, so the `RecordSet` contract holds, but a very large workbook is bounded by the file rather
+than by the cursor. CSV is the answer for large batches until a SAX-streaming reader lands.
+
+### 5.3.4 Data binding & the print form (lb-data, Phase 11e — implemented)
+
+```
+DocumentBinder.bind(template, Map<sourceName, DataRecord>) → BindingResult(document, problems)
+PromptDataSource(name, promptFields).open(answers)         → one validated record
+```
+
+Bindings live **inside property values** as `${Source.Field}`, exactly as lbl-format.md §4.2 and §4.3
+store them — there is no separate binding table to keep in step with the elements. `ValueTemplate`
+splits a value into literal text and placeholders once; `resolve` then runs per record, which is what
+makes a 10 000-label run cheap.
+
+**The binder has no per-element-type code.** Which properties carry printed content is declared by
+`PropertyDescriptor.bindable()` in the Phase 7b metadata — `value` on text and barcode,
+`hriCustomText`, `assetPath` on an image — so `DocumentBinder` asks the schema and never switches on
+an element class. An element's `name` is deliberately not bindable (design metadata that never
+prints), and neither is `printCondition`: that is an expression for the Phase 12 engine to
+*evaluate*, and substituting a value into it would turn a condition into a constant.
+
+**Only field references resolve here.** Anything else inside `${…}` — a function call, an operator, a
+bare `${Serial}` — is kept verbatim and reported as a warning, because evaluating it belongs to the
+Phase 12 engine (which R-04 requires to be a whitelisted registry, not something improvised in the
+binder). Inventing semantics for those now would have to be unpicked later.
+
+**Problems are reported, not thrown**, the same split as the barcode validator: an unknown source or
+field is an `ERROR` and leaves the placeholder *visible* on the label, because a silently blanked
+barcode scans as nothing and nobody questions it, whereas `${Product.Nope}` printed on a carton is
+noticed before the run leaves the building. The designer shows the problems; the print engine refuses
+on any error. The merged document is pure output — the template is never mutated, so a failure on row
+4 000 cannot have corrupted it for row 4 001.
+
+`PromptDataSource` (FR-DS-08) is an ordinary `DataSource` yielding one record, so `${Prompt.SKU}`
+binds exactly like a database column and the preview, binder and print engine need no special case.
+Its answers arrive through `open(parameters)` — what that parameter was always for. Required fields,
+the validation regex and the pick list are all checked **before any label prints**, and every failure
+is reported together: an operator at a terminal should see everything wrong with the form at once. A
+malformed validation pattern is refused when the field is *defined*, since otherwise it would fail
+every answer at print time with no way to tell why.
 
 ### 5.4 `PrinterDriver` + `PrinterCapabilities` (lb-print, Phase 13d)
 ```
 interface PrinterDriver {
     PrinterCapabilities capabilities();
-    PrintOutput generate(LabelDocument doc, Record record, PrintOptions opts);
+    PrintOutput generate(LabelDocument resolvedDocument, PrintOptions opts);
 }
 ```
 `PrinterCapabilities` declares DPI, max print width, resident fonts, supported symbologies, and
 cutter/peeler/**RFID** support. The UI reads capabilities to disable what a printer cannot do
 (FR-R-05) and to warn about unreproducible X-dimensions (FR-B-07).
+
+**A driver takes an already-merged document, not a template plus a record.** The sketch here
+originally passed a record alongside the template, which §2's module table forbids — `lb-print` may
+not depend on `lb-data`, and the ArchUnit layering rule enforces it. Correcting the signature is the
+better answer rather than relaxing the rule: a driver that received a record would have to resolve
+bindings itself, so every driver would re-implement the merge, and the golden-file tests for ZPL and
+EPL output would each need data fixtures. Binding happens once, in `DocumentBinder` (§5.3.4), and the
+driver's only job is turning a finished document into bytes. The caller that owns both — the desktop
+app, the automation engine or the server — merges and then prints.
 
 ### 5.5 `Transport` (lb-print, Phase 13d)
 Sends bytes to a device: `RawTcpTransport` (:9100), `WindowsRawSpoolTransport`, `SerialTransport`,

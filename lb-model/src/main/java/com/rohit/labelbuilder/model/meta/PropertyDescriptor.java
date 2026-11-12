@@ -32,6 +32,7 @@ public final class PropertyDescriptor {
     private final Function<LabelElement, Object> getter;
     private final BiFunction<LabelElement, Object, LabelElement> setter;
     private final boolean readOnly;
+    private final boolean bindable;
     private final Double min;
     private final Double max;
     private final List<Object> enumConstants;
@@ -45,6 +46,7 @@ public final class PropertyDescriptor {
             Function<LabelElement, Object> getter,
             BiFunction<LabelElement, Object, LabelElement> setter,
             boolean readOnly,
+            boolean bindable,
             Double min,
             Double max,
             List<Object> enumConstants) {
@@ -56,6 +58,7 @@ public final class PropertyDescriptor {
         this.getter = Objects.requireNonNull(getter, "getter");
         this.setter = Objects.requireNonNull(setter, "setter");
         this.readOnly = readOnly;
+        this.bindable = bindable;
         this.min = min;
         this.max = max;
         this.enumConstants = List.copyOf(enumConstants);
@@ -79,6 +82,7 @@ public final class PropertyDescriptor {
                 valueType,
                 getter::apply,
                 (e, v) -> setter.apply(e, valueType.cast(v)),
+                false,
                 false,
                 null,
                 null,
@@ -171,6 +175,7 @@ public final class PropertyDescriptor {
                     throw new UnsupportedOperationException("property is read-only: " + key);
                 },
                 true,
+                false,
                 null,
                 null,
                 constants);
@@ -179,7 +184,38 @@ public final class PropertyDescriptor {
     /** A copy carrying an advisory numeric range (used by the inspector to bound INTEGER/DECIMAL). */
     public PropertyDescriptor withRange(Double min, Double max) {
         return new PropertyDescriptor(
-                key, displayName, category, kind, valueType, getter, setter, readOnly, min, max, enumConstants);
+                key,
+                displayName,
+                category,
+                kind,
+                valueType,
+                getter,
+                setter,
+                readOnly,
+                bindable,
+                min,
+                max,
+                enumConstants);
+    }
+
+    /**
+     * A copy marked as carrying printed content, so the data binder may substitute
+     * {@code ${Source.Field}} references in it.
+     *
+     * <p>Declared here rather than decided by the binder, for the same reason the inspector reads its
+     * controls from this metadata: the binder then has no per-element-type knowledge at all, and making
+     * a new property bindable is a one-line change beside the property itself.
+     *
+     * <p>Most text properties are deliberately <em>not</em> bindable. An element's {@code name} is
+     * design metadata that never prints, and {@code printCondition} is an expression for the Phase 12
+     * engine to <em>evaluate</em> — substituting a value into it would turn a condition into a constant.
+     */
+    public PropertyDescriptor asBindable() {
+        if (kind != PropertyKind.TEXT) {
+            throw new IllegalArgumentException("only TEXT properties can be bound, " + key + " is " + kind);
+        }
+        return new PropertyDescriptor(
+                key, displayName, category, kind, valueType, getter, setter, readOnly, true, min, max, enumConstants);
     }
 
     /** Read the current value from an element. */
@@ -221,6 +257,11 @@ public final class PropertyDescriptor {
 
     public boolean readOnly() {
         return readOnly;
+    }
+
+    /** Whether this property carries printed content that may contain {@code ${Source.Field}}. */
+    public boolean bindable() {
+        return bindable;
     }
 
     public Optional<Double> min() {

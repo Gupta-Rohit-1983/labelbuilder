@@ -59,6 +59,16 @@ public final class ElementSchemas {
 
     private ElementSchemas() {}
 
+    /**
+     * Every element type that has a schema.
+     *
+     * <p>So a rule can be asserted across all of them — "no bindable property is read-only", say —
+     * and keep holding when a new element type is added. The order is unspecified.
+     */
+    public static java.util.Set<Class<? extends LabelElement>> registeredTypes() {
+        return SCHEMAS.keySet();
+    }
+
     /** The schema for an element instance. */
     public static ElementSchema schemaFor(LabelElement element) {
         return schemaFor(element.getClass());
@@ -145,7 +155,8 @@ public final class ElementSchemas {
 
     private static ElementSchema textSchema() {
         List<PropertyDescriptor> p = new ArrayList<>();
-        p.add(PropertyDescriptor.text("value", "Text", TEXT, e -> text(e).value(), (e, v) -> text(e).withValue(v)));
+        p.add(PropertyDescriptor.text("value", "Text", TEXT, e -> text(e).value(), (e, v) -> text(e).withValue(v))
+                .asBindable());
         p.add(PropertyDescriptor.font(
                 "font", "Font", TEXT, FontSpec.class, e -> text(e).font(), (e, v) -> text(e).withFont(v)));
         p.add(PropertyDescriptor.color("color", "Colour", TEXT, RgbaColor.class, e -> text(e).color(), (e, v) -> {
@@ -319,8 +330,10 @@ public final class ElementSchemas {
 
     private static ElementSchema imageSchema() {
         List<PropertyDescriptor> p = new ArrayList<>();
-        p.add(PropertyDescriptor.text(
-                "assetPath", "Asset path", IMAGE, e -> image(e).assetPath(), (e, v) -> image(e).withAssetPath(v)));
+        p.add(PropertyDescriptor.text("assetPath", "Asset path", IMAGE, e -> image(e).assetPath(), (e, v) -> image(e)
+                        .withAssetPath(v))
+                // Bindable so a label can pick its image per record — a country flag, a hazard symbol.
+                .asBindable());
         p.add(PropertyDescriptor.enumProp("fitMode", "Fit", IMAGE, ImageFit.class, e -> image(e).fitMode(), (e, v) -> {
             ImageElement i = image(e);
             return new ImageElement(i.properties(), i.assetPath(), v, i.monochrome(), i.opacity());
@@ -390,7 +403,8 @@ public final class ElementSchemas {
                 e -> barcode(e).symbology(),
                 (e, v) -> barcode(e).withSymbology(v)));
         p.add(PropertyDescriptor.text("value", "Value", BARCODE, e -> barcode(e).value(), (e, v) -> barcode(e)
-                .withValue(v)));
+                        .withValue(v))
+                .asBindable());
         p.add(PropertyDescriptor.decimal(
                         "xDimensionMm",
                         "X-dimension (mm)",
@@ -456,11 +470,13 @@ public final class ElementSchemas {
                 e -> barcode(e).hri().showCheckDigit(),
                 (e, v) -> withHri(e, h -> new Hri(h.position(), h.font(), v, h.customText()))));
         p.add(PropertyDescriptor.text(
-                "hriCustomText",
-                "Custom text",
-                HRI,
-                e -> barcode(e).hri().customText(),
-                (e, v) -> withHri(e, h -> new Hri(h.position(), h.font(), h.showCheckDigit(), blankToNull(v)))));
+                        "hriCustomText",
+                        "Custom text",
+                        HRI,
+                        e -> barcode(e).hri().customText(),
+                        (e, v) -> withHri(e, h -> new Hri(h.position(), h.font(), h.showCheckDigit(), blankToNull(v))))
+                // Printed beneath the symbol, so it is content like any other.
+                .asBindable());
         return schema(BarcodeElement.class, p);
     }
 
